@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace OpenccFmmsegLib
@@ -18,14 +19,18 @@ namespace OpenccFmmsegLib
         // Define constants
         private const string DllPath = "opencc_fmmseg_capi";
 
-        /// <summary>
-        /// Supported configuration names for conversion.
-        /// </summary>
-        private static readonly HashSet<string> ConfigList = new HashSet<string>(StringComparer.Ordinal)
-        {
-            "s2t", "t2s", "s2tw", "tw2s", "s2twp", "tw2sp", "s2hk", "hk2s", "t2tw", "t2twp", "t2hk", "tw2t", "tw2tp",
-            "hk2t", "t2jp", "jp2t"
-        };
+        // Pre-encoded config bytes for common configurations
+        private static readonly Dictionary<string, byte[]> EncodedConfigCache =
+            new Dictionary<string, byte[]>(StringComparer.Ordinal);
+
+        // Supported configuration names for OpenCC conversion
+        private static readonly HashSet<string> ConfigList = new HashSet<string>(
+            new[]
+            {
+                "s2t", "t2s", "s2tw", "tw2s", "s2twp", "tw2sp", "s2hk", "hk2s",
+                "t2tw", "t2twp", "t2hk", "tw2t", "tw2tp", "hk2t", "t2jp", "jp2t"
+            },
+            StringComparer.Ordinal);
 
         private IntPtr _openccInstance;
         private bool _disposed;
@@ -55,6 +60,23 @@ namespace OpenccFmmsegLib
 
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         private static extern void opencc_error_free(IntPtr str);
+
+        // Static constructor to pre-encode common config strings for efficient native interop
+        static OpenccFmmseg()
+        {
+            foreach (var config in ConfigList)
+            {
+                if (EncodedConfigCache.ContainsKey(config))
+                    continue; // Defensive: avoid ArgumentException if code is refactored later
+
+                var byteCount = Encoding.UTF8.GetByteCount(config);
+                var encodedBytes = new byte[byteCount + 1];
+                Encoding.UTF8.GetBytes(config, 0, config.Length, encodedBytes, 0);
+                encodedBytes[byteCount] = 0x00;
+
+                EncodedConfigCache[config] = encodedBytes;
+            }
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="OpenccFmmseg"/> class.
@@ -135,55 +157,29 @@ namespace OpenccFmmsegLib
         {
             ThrowIfDisposed();
 
-            var inputByteCount = Encoding.UTF8.GetByteCount(input);
-            var configByteCount = Encoding.UTF8.GetByteCount(config);
-
-            byte[] inputBytes = null;
-            byte[] configBytes = null;
             var pool = ByteArrayPool.Value;
-            var inputFromPool = false;
-            var configFromPool = false;
+            byte[] inputBytes = null;
+            var inputRented = false;
 
             try
             {
-                // For input bytes - use direct allocation for small strings (simpler and just as efficient)
-                if (inputByteCount <= 1024)
+                // Prepare input buffer
+                var inputByteCount = Encoding.UTF8.GetByteCount(input);
+                var inputBufferSize = inputByteCount + 1;
+
+                inputBytes = pool.Rent(inputBufferSize);
+                inputRented = true;
+
+                var inputBytesWritten = Encoding.UTF8.GetBytes(input, 0, input.Length, inputBytes, 0);
+                inputBytes[inputBytesWritten] = 0x00; // Null-terminate
+
+                // Prepare config buffer
+                if (!EncodedConfigCache.TryGetValue(config, out var configBytes))
                 {
-                    // Allocate new array and encode. It will be exactly inputByteCount long.
-                    // We need to create a new array with +1 size and copy to ensure null-termination.
-                    byte[] tempBytes = Encoding.UTF8.GetBytes(input);
-                    inputBytes = new byte[tempBytes.Length + 1];
-                    Buffer.BlockCopy(tempBytes, 0, inputBytes, 0, tempBytes.Length);
-                    inputBytes[tempBytes.Length] = 0x00; // Null-terminate
-                }
-                else
-                {
-                    // Rent from pool, ensure +1 size for null terminator
-                    inputBytes = pool.Rent(inputByteCount + 1);
-                    inputFromPool = true;
-                    // Encoding.UTF8.GetBytes returns the number of bytes written
-                    var actualBytesWritten = Encoding.UTF8.GetBytes(input, 0, input.Length, inputBytes, 0);
-                    inputBytes[actualBytesWritten] = 0x00; // Null-terminate at the actual end of written data
+                    throw new ArgumentException($"Unsupported OpenCC config: {config}", nameof(config));
                 }
 
-                // For config bytes - direct allocation (simpler)
-                if (configByteCount <= 128)
-                {
-                    // Allocate new array and encode. Similar to inputBytes small case.
-                    byte[] tempBytes = Encoding.UTF8.GetBytes(config);
-                    configBytes = new byte[tempBytes.Length + 1];
-                    Buffer.BlockCopy(tempBytes, 0, configBytes, 0, tempBytes.Length);
-                    configBytes[tempBytes.Length] = 0x00; // Null-terminate
-                }
-                else
-                {
-                    // Rent from pool, ensure +1 size for null terminator
-                    configBytes = pool.Rent(configByteCount + 1);
-                    configFromPool = true;
-                    var actualBytesWritten = Encoding.UTF8.GetBytes(config, 0, config.Length, configBytes, 0);
-                    configBytes[actualBytesWritten] = 0x00; // Null-terminate at the actual end of written data
-                }
-
+                // Native call
                 var output = opencc_convert(_openccInstance, inputBytes, configBytes, punctuation);
 
                 try
@@ -198,11 +194,8 @@ namespace OpenccFmmsegLib
             }
             finally
             {
-                // Return rented arrays to pool
-                if (inputFromPool && inputBytes != null)
+                if (inputRented && inputBytes != null)
                     pool.Return(inputBytes);
-                if (configFromPool && configBytes != null)
-                    pool.Return(configBytes);
             }
         }
 
@@ -214,37 +207,33 @@ namespace OpenccFmmsegLib
         public int ZhoCheck(string input)
         {
             ThrowIfDisposed();
-            if (string.IsNullOrEmpty(input)) return 0;
+            if (string.IsNullOrEmpty(input))
+                return 0;
 
-            byte[] inputBytes = null;
             var pool = ByteArrayPool.Value;
-            var inputFromPool = false;
+            byte[] buffer = null;
+            var rented = false;
 
             try
             {
-                var inputByteCount = Encoding.UTF8.GetByteCount(input);
+                var byteCount = Encoding.UTF8.GetByteCount(input);
+                var bufferSize = byteCount + 1; // for null terminator
 
-                if (inputByteCount <= 1024) // Reusing the same threshold for consistency
-                {
-                    byte[] tempBytes = Encoding.UTF8.GetBytes(input);
-                    inputBytes = new byte[tempBytes.Length + 1];
-                    Buffer.BlockCopy(tempBytes, 0, inputBytes, 0, tempBytes.Length);
-                    inputBytes[tempBytes.Length] = 0x00; // Null-terminate
-                }
-                else
-                {
-                    inputBytes = pool.Rent(inputByteCount + 1);
-                    inputFromPool = true;
-                    var actualBytesWritten = Encoding.UTF8.GetBytes(input, 0, input.Length, inputBytes, 0);
-                    inputBytes[actualBytesWritten] = 0x00; // Null-terminate
-                }
+                // Always rent from the pool to avoid heap allocation
+                buffer = pool.Rent(bufferSize);
+                rented = true;
 
-                return opencc_zho_check(_openccInstance, inputBytes);
+                int bytesWritten = Encoding.UTF8.GetBytes(input, 0, input.Length, buffer, 0);
+                buffer[bytesWritten] = 0x00; // Null-terminate
+
+                return opencc_zho_check(_openccInstance, buffer);
             }
             finally
             {
-                if (inputFromPool && inputBytes != null)
-                    pool.Return(inputBytes);
+                if (rented && buffer != null)
+                {
+                    pool.Return(buffer);
+                }
             }
         }
 
@@ -280,30 +269,115 @@ namespace OpenccFmmsegLib
         /// Converts a UTF-8 null-terminated string from unmanaged memory to a managed string.
         /// </summary>
         /// <param name="ptr">Pointer to the unmanaged UTF-8 string.</param>
+        /// <param name="maxLength"></param>
         /// <returns>The managed string, or null if the pointer is zero.</returns>
-        private static unsafe string Utf8BytesToString(IntPtr ptr)
+        // private static unsafe string Utf8BytesToString(IntPtr ptr)
+        // {
+        //     if (ptr == IntPtr.Zero)
+        //         return null;
+        //
+        //     var bytePtr = (byte*)ptr;
+        //     var length = 0;
+        //
+        //     // Find null-terminator length            
+        //     for (byte* p = bytePtr; *p != 0; p++)
+        //     {
+        //         length++;
+        //     }
+        //
+        //     // Decode directly from the unmanaged memory
+        //     return Encoding.UTF8.GetString(bytePtr, length);
+        // }
+        private static unsafe string Utf8BytesToString(IntPtr ptr, int maxLength = 0)
         {
             if (ptr == IntPtr.Zero)
                 return null;
 
             var bytePtr = (byte*)ptr;
-            var length = 0;
+            var index = 0;
 
-            // Find null-terminator length            
-            for (byte* p = bytePtr; *p != 0; p++)
+            var limit = maxLength > 0 ? maxLength : int.MaxValue;
+
+            // Safe byte-by-byte fallback scan
+            bool SafeByteScan(int startIndex, int endIndex)
             {
-                length++;
+                for (var i = startIndex; i < endIndex; i++)
+                {
+                    if (bytePtr[i] != 0) continue;
+                    index = i;
+                    return true;
+                }
+
+                index = endIndex;
+                return false;
             }
 
-            // Decode directly from the unmanaged memory
-            return Encoding.UTF8.GetString(bytePtr, length);
+            try
+            {
+                if (IntPtr.Size == 8)
+                {
+                    // 64-bit batch scan
+                    while (index + 8 <= limit)
+                    {
+                        var chunk = *((ulong*)(bytePtr + index));
+                        if (HasZeroByte64(chunk))
+                        {
+                            for (int offset = 0; offset < 8; offset++)
+                            {
+                                if (bytePtr[index + offset] != 0) continue;
+                                index += offset;
+                                return Encoding.UTF8.GetString(bytePtr, index);
+                            }
+                        }
+
+                        index += 8;
+                    }
+                }
+                else
+                {
+                    // 32-bit batch scan
+                    while (index + 4 <= limit)
+                    {
+                        var chunk = *((uint*)(bytePtr + index));
+                        if (HasZeroByte32(chunk))
+                        {
+                            for (var offset = 0; offset < 4; offset++)
+                            {
+                                if (bytePtr[index + offset] != 0) continue;
+                                index += offset;
+                                return Encoding.UTF8.GetString(bytePtr, index);
+                            }
+                        }
+
+                        index += 4;
+                    }
+                }
+            }
+            catch
+            {
+                return SafeByteScan(index, limit) ? Encoding.UTF8.GetString(bytePtr, index) : null;
+            }
+
+            // Finish scanning byte-by-byte within limit
+            return SafeByteScan(index, limit) ? Encoding.UTF8.GetString(bytePtr, index) : null;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool HasZeroByte64(ulong x)
+        {
+            return ((x - 0x0101010101010101UL) & ~x & 0x8080808080808080UL) != 0;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool HasZeroByte32(uint x)
+        {
+            return ((x - 0x01010101U) & ~x & 0x80808080U) != 0;
         }
 
         /// <summary>
         /// Throws an <see cref="ObjectDisposedException"/> if the instance has been disposed.
         /// </summary>
-        [System.Runtime.CompilerServices.MethodImpl(
-            System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ThrowIfDisposed()
         {
             if (_disposed)
