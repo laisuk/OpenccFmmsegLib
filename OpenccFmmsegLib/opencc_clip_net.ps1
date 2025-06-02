@@ -8,6 +8,8 @@ param (
 )
 
 # Load the assembly
+$nativePath = Join-Path $PSScriptRoot "bin\Release\netstandard2.0\runtimes\win-x64\native"
+$env:PATH = "$nativePath;$env:PATH"
 Add-Type -Path "${PSScriptRoot}\bin\Release\netstandard2.0\OpenccFmmsegLib.dll"
 
 # Define ANSI escape codes for colors
