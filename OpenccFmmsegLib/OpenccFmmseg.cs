@@ -203,7 +203,7 @@ namespace OpenccFmmsegLib
         /// Checks if the input string is Chinese text using the OpenCC language check.
         /// </summary>
         /// <param name="input">The input string to check.</param>
-        /// <returns>An integer indicating the result of the check (implementation-defined by OpenCC).</returns>
+        /// <returns>An integer indicating the result of the check (implementation-defined by OpenCC. 1 - Traditional, 2 - Simplified, 0 - Others).</returns>
         public int ZhoCheck(string input)
         {
             ThrowIfDisposed();
@@ -271,23 +271,6 @@ namespace OpenccFmmsegLib
         /// <param name="ptr">Pointer to the unmanaged UTF-8 string.</param>
         /// <param name="maxLength"></param>
         /// <returns>The managed string, or null if the pointer is zero.</returns>
-        // private static unsafe string Utf8BytesToString(IntPtr ptr)
-        // {
-        //     if (ptr == IntPtr.Zero)
-        //         return null;
-        //
-        //     var bytePtr = (byte*)ptr;
-        //     var length = 0;
-        //
-        //     // Find null-terminator length            
-        //     for (byte* p = bytePtr; *p != 0; p++)
-        //     {
-        //         length++;
-        //     }
-        //
-        //     // Decode directly from the unmanaged memory
-        //     return Encoding.UTF8.GetString(bytePtr, length);
-        // }
         private static unsafe string Utf8BytesToString(IntPtr ptr, int maxLength = 0)
         {
             if (ptr == IntPtr.Zero)
@@ -361,6 +344,23 @@ namespace OpenccFmmsegLib
             // Finish scanning byte-by-byte within limit
             return SafeByteScan(index, limit) ? Encoding.UTF8.GetString(bytePtr, index) : null;
         }
+        // private static unsafe string Utf8BytesToString(IntPtr ptr)
+        // {
+        //     if (ptr == IntPtr.Zero)
+        //         return null;
+        //
+        //     var bytePtr = (byte*)ptr;
+        //     var length = 0;
+        //
+        //     // Find null-terminator length            
+        //     for (byte* p = bytePtr; *p != 0; p++)
+        //     {
+        //         length++;
+        //     }
+        //
+        //     // Decode directly from the unmanaged memory
+        //     return Encoding.UTF8.GetString(bytePtr, length);
+        // }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool HasZeroByte64(ulong x)
