@@ -203,7 +203,9 @@ namespace OpenccFmmsegLib
         /// Checks if the input string is Chinese text using the OpenCC language check.
         /// </summary>
         /// <param name="input">The input string to check.</param>
-        /// <returns>An integer indicating the result of the check (implementation-defined by OpenCC. 1 - Traditional, 2 - Simplified, 0 - Others).</returns>
+        /// <returns>An integer indicating the result of the check
+        /// (implementation-defined by OpenCC. 1 - Traditional, 2 - Simplified, 0 - Others).
+        /// </returns>
         public int ZhoCheck(string input)
         {
             ThrowIfDisposed();
@@ -266,84 +268,71 @@ namespace OpenccFmmsegLib
         }
 
         /// <summary>
-        /// Converts a UTF-8 null-terminated string from unmanaged memory to a managed string.
+        /// Converts a null-terminated UTF-8 string from unmanaged memory to a managed string.
+        /// Uses fast 64-bit or 32-bit scanning where possible.
         /// </summary>
         /// <param name="ptr">Pointer to the unmanaged UTF-8 string.</param>
-        /// <param name="maxLength"></param>
+        /// <param name="maxBytes"></param>
         /// <returns>The managed string, or null if the pointer is zero.</returns>
-        private static unsafe string Utf8BytesToString(IntPtr ptr, int maxLength = 0)
+        // ReSharper disable PossibleNullReferenceException
+        private static unsafe string Utf8BytesToString(IntPtr ptr, int maxBytes = 0)
         {
             if (ptr == IntPtr.Zero)
                 return null;
 
             var bytePtr = (byte*)ptr;
-            var index = 0;
-
-            var limit = maxLength > 0 ? maxLength : int.MaxValue;
-
-            // Safe byte-by-byte fallback scan
-            bool SafeByteScan(int startIndex, int endIndex)
-            {
-                for (var i = startIndex; i < endIndex; i++)
-                {
-                    if (bytePtr[i] != 0) continue;
-                    index = i;
-                    return true;
-                }
-
-                index = endIndex;
-                return false;
-            }
+            int index = 0;
+            int limit = maxBytes > 0 ? maxBytes : int.MaxValue;
 
             try
             {
                 if (IntPtr.Size == 8)
                 {
-                    // 64-bit batch scan
+                    // 64-bit scan
                     while (index + 8 <= limit)
                     {
-                        var chunk = *((ulong*)(bytePtr + index));
+                        ulong chunk = *((ulong*)(bytePtr + index));
                         if (HasZeroByte64(chunk))
                         {
-                            for (int offset = 0; offset < 8; offset++)
+                            for (int i = 0; i < 8; i++)
                             {
-                                if (bytePtr[index + offset] != 0) continue;
-                                index += offset;
-                                return Encoding.UTF8.GetString(bytePtr, index);
+                                if (bytePtr[index + i] == 0)
+                                    return Encoding.UTF8.GetString(bytePtr, index + i);
                             }
                         }
-
                         index += 8;
                     }
                 }
                 else
                 {
-                    // 32-bit batch scan
+                    // 32-bit scan
                     while (index + 4 <= limit)
                     {
-                        var chunk = *((uint*)(bytePtr + index));
+                        uint chunk = *((uint*)(bytePtr + index));
                         if (HasZeroByte32(chunk))
                         {
-                            for (var offset = 0; offset < 4; offset++)
+                            for (int i = 0; i < 4; i++)
                             {
-                                if (bytePtr[index + offset] != 0) continue;
-                                index += offset;
-                                return Encoding.UTF8.GetString(bytePtr, index);
+                                if (bytePtr[index + i] == 0)
+                                    return Encoding.UTF8.GetString(bytePtr, index + i);
                             }
                         }
-
                         index += 4;
                     }
                 }
             }
             catch
             {
-                return SafeByteScan(index, limit) ? Encoding.UTF8.GetString(bytePtr, index) : null;
+                // In case of memory access error, fallback to byte scan
             }
 
-            // Finish scanning byte-by-byte within limit
-            return SafeByteScan(index, limit) ? Encoding.UTF8.GetString(bytePtr, index) : null;
+            // Byte-by-byte scan to null terminator or maxLength
+            while (index < limit && bytePtr[index] != 0)
+                index++;
+
+            return Encoding.UTF8.GetString(bytePtr, index);
         }
+
         // private static unsafe string Utf8BytesToString(IntPtr ptr)
         // {
         //     if (ptr == IntPtr.Zero)

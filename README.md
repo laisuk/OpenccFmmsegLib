@@ -1,6 +1,6 @@
 # OpenccFmmsegLib
 
-A .NET class library providing a managed wrapper for the [OpenCC](https://github.com/BYVoid/OpenCC) + [opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg) C API, enabling Chinese text conversion (Simplified/Traditional) in C# applications.
+A .NET class library providing a managed wrapper for the [OpenCC](https://github.com/BYVoid/OpenCC) + [opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg) Rust C API, enabling Chinese text conversion (Simplified/Traditional) in C# applications.
 
 ## Features
 
