@@ -4,7 +4,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Buffers;
 using System.Runtime.CompilerServices;
-using System.Threading;
 
 namespace OpenccFmmsegLib
 {
@@ -34,10 +33,6 @@ namespace OpenccFmmsegLib
 
         private IntPtr _openccInstance;
         private bool _disposed;
-
-        // Thread-local buffer pool for byte arrays to reduce allocations
-        private static readonly ThreadLocal<ArrayPool<byte>> ByteArrayPool =
-            new ThreadLocal<ArrayPool<byte>>(() => ArrayPool<byte>.Shared);
 
         // Define DLL functions using P/Invoke
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
@@ -86,7 +81,7 @@ namespace OpenccFmmsegLib
         {
             _openccInstance = opencc_new();
             if (_openccInstance != IntPtr.Zero) return;
-            var lastError = GetLastErrorInternal();
+            var lastError = LastError();
             throw new InvalidOperationException($"Failed to initialize OpenCC. {lastError}".Trim());
         }
 
@@ -147,31 +142,16 @@ namespace OpenccFmmsegLib
             if (!ConfigList.Contains(config))
                 config = "s2t";
 
-            return ConvertInternal(input, config, punctuation);
-        }
-
-        /// <summary>
-        /// Internal conversion logic. Handles encoding, buffer pooling, and native call.
-        /// </summary>
-        private string ConvertInternal(string input, string config, bool punctuation)
-        {
             ThrowIfDisposed();
 
-            var pool = ByteArrayPool.Value;
-            byte[] inputBytes = null;
-            var inputRented = false;
+            // Prepare input buffer
+            var inputByteCount = Encoding.UTF8.GetByteCount(input);
+            var inputBuffer = ArrayPool<byte>.Shared.Rent(inputByteCount + 1);
 
             try
             {
-                // Prepare input buffer
-                var inputByteCount = Encoding.UTF8.GetByteCount(input);
-                var inputBufferSize = inputByteCount + 1;
-
-                inputBytes = pool.Rent(inputBufferSize);
-                inputRented = true;
-
-                var inputBytesWritten = Encoding.UTF8.GetBytes(input, 0, input.Length, inputBytes, 0);
-                inputBytes[inputBytesWritten] = 0x00; // Null-terminate
+                var inputBytesWritten = Encoding.UTF8.GetBytes(input, 0, input.Length, inputBuffer, 0);
+                inputBuffer[inputBytesWritten] = 0x00; // Null-terminate
 
                 // Prepare config buffer
                 if (!EncodedConfigCache.TryGetValue(config, out var configBytes))
@@ -180,7 +160,7 @@ namespace OpenccFmmsegLib
                 }
 
                 // Native call
-                var output = opencc_convert(_openccInstance, inputBytes, configBytes, punctuation);
+                var output = opencc_convert(_openccInstance, inputBuffer, configBytes, punctuation);
 
                 try
                 {
@@ -194,8 +174,7 @@ namespace OpenccFmmsegLib
             }
             finally
             {
-                if (inputRented && inputBytes != null)
-                    pool.Return(inputBytes);
+                ArrayPool<byte>.Shared.Return(inputBuffer);
             }
         }
 
@@ -212,30 +191,20 @@ namespace OpenccFmmsegLib
             if (string.IsNullOrEmpty(input))
                 return 0;
 
-            var pool = ByteArrayPool.Value;
-            byte[] buffer = null;
-            var rented = false;
+            // Prepare input buffer
+            var inputByteCount = Encoding.UTF8.GetByteCount(input);
+            var inputBuffer = ArrayPool<byte>.Shared.Rent(inputByteCount + 1);
 
             try
             {
-                var byteCount = Encoding.UTF8.GetByteCount(input);
-                var bufferSize = byteCount + 1; // for null terminator
+                var bytesWritten = Encoding.UTF8.GetBytes(input, 0, input.Length, inputBuffer, 0);
+                inputBuffer[bytesWritten] = 0x00; // Null-terminate
 
-                // Always rent from the pool to avoid heap allocation
-                buffer = pool.Rent(bufferSize);
-                rented = true;
-
-                int bytesWritten = Encoding.UTF8.GetBytes(input, 0, input.Length, buffer, 0);
-                buffer[bytesWritten] = 0x00; // Null-terminate
-
-                return opencc_zho_check(_openccInstance, buffer);
+                return opencc_zho_check(_openccInstance, inputBuffer);
             }
             finally
             {
-                if (rented && buffer != null)
-                {
-                    pool.Return(buffer);
-                }
+                ArrayPool<byte>.Shared.Return(inputBuffer);
             }
         }
 
@@ -244,14 +213,6 @@ namespace OpenccFmmsegLib
         /// </summary>
         /// <returns>The last error message, or an empty string if none.</returns>
         public static string LastError()
-        {
-            return GetLastErrorInternal();
-        }
-
-        /// <summary>
-        /// Internal helper to retrieve the last error from the native library.
-        /// </summary>
-        private static string GetLastErrorInternal()
         {
             var cLastError = opencc_last_error();
             if (cLastError == IntPtr.Zero)
@@ -300,6 +261,7 @@ namespace OpenccFmmsegLib
                                     return Encoding.UTF8.GetString(bytePtr, index + i);
                             }
                         }
+
                         index += 8;
                     }
                 }
@@ -317,6 +279,7 @@ namespace OpenccFmmsegLib
                                     return Encoding.UTF8.GetString(bytePtr, index + i);
                             }
                         }
+
                         index += 4;
                     }
                 }
