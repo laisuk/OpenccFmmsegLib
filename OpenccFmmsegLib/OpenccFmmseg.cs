@@ -176,7 +176,10 @@ namespace OpenccFmmsegLib
             }
             finally
             {
-                ArrayPool<byte>.Shared.Return(inputBuffer);
+                if (inputBuffer != null)
+                {
+                    ArrayPool<byte>.Shared.Return(inputBuffer);
+                }
             }
         }
 
