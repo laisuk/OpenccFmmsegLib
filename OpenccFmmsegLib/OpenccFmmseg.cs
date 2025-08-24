@@ -144,12 +144,14 @@ namespace OpenccFmmsegLib
 
             ThrowIfDisposed();
 
-            // Prepare input buffer
+            // Compute needed size first (pure, non-allocating & won’t rent yet)
             var inputByteCount = Encoding.UTF8.GetByteCount(input);
-            var inputBuffer = ArrayPool<byte>.Shared.Rent(inputByteCount + 1);
+            byte[] inputBuffer = null;
 
             try
             {
+                inputBuffer = ArrayPool<byte>.Shared.Rent(inputByteCount + 1);
+
                 var inputBytesWritten = Encoding.UTF8.GetBytes(input, 0, input.Length, inputBuffer, 0);
                 inputBuffer[inputBytesWritten] = 0x00; // Null-terminate
 
@@ -191,20 +193,23 @@ namespace OpenccFmmsegLib
             if (string.IsNullOrEmpty(input))
                 return 0;
 
-            // Prepare input buffer
-            var inputByteCount = Encoding.UTF8.GetByteCount(input);
-            var inputBuffer = ArrayPool<byte>.Shared.Rent(inputByteCount + 1);
+            // Compute needed size first (pure, non-allocating & won’t rent yet)
+            int inputByteCount = Encoding.UTF8.GetByteCount(input);
 
+            byte[] buffer = null;
             try
             {
-                var bytesWritten = Encoding.UTF8.GetBytes(input, 0, input.Length, inputBuffer, 0);
-                inputBuffer[bytesWritten] = 0x00; // Null-terminate
+                buffer = ArrayPool<byte>.Shared.Rent(inputByteCount + 1);
 
-                return opencc_zho_check(_openccInstance, inputBuffer);
+                int bytesWritten = Encoding.UTF8.GetBytes(input, 0, input.Length, buffer, 0);
+                buffer[bytesWritten] = 0; // null-terminate
+
+                return opencc_zho_check(_openccInstance, buffer);
             }
             finally
             {
-                ArrayPool<byte>.Shared.Return(inputBuffer);
+                if (buffer != null)
+                    ArrayPool<byte>.Shared.Return(buffer);
             }
         }
 
