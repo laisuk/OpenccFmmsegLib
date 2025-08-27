@@ -3,7 +3,8 @@
 [![NuGet](https://img.shields.io/nuget/v/OpenccFmmsegLib.svg)](https://www.nuget.org/packages/OpenccNetLib/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/OpenccFmmsegLib.svg?label=downloads&color=blue)](https://www.nuget.org/packages/OpenccNetLib/)
 [![License](https://img.shields.io/github/license/laisuk/OpenccFmmsegLib.svg)](https://github.com/laisuk/OpenccFmmsegLib/blob/master/LICENSE)  
-A .NET class library providing a managed wrapper for the [OpenCC](https://github.com/BYVoid/OpenCC) + [opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg) Rust C API, enabling Chinese text conversion (Simplified/Traditional) in C# applications.
+
+A .NET class library providing a managed wrapper for the [OpenCC](https://github.com/BYVoid/OpenCC) + high performance [opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg) Rust C API, enabling Chinese text conversion (Simplified/Traditional) in C# applications.
 
 ## Features
 
@@ -21,8 +22,8 @@ A .NET class library providing a managed wrapper for the [OpenCC](https://github
 
 ### Prerequisites
 
-- .NET 6.0 or later
 - .NET Standard 2.0 or higher (.NET Core, .NET Framework, Mono, Xamarin, etc.)
+- .NET 6.0 or later
 - Native `opencc_fmmseg_capi` library (must be available in your system path or application directory)
 
 ### Installation
