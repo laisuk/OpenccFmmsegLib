@@ -142,7 +142,7 @@ if ($DisplayOutput.Length -eq 0) {
 # Display results
 Write-Host "Configuration: $($Blue)$($Config), $($Punctuation)"
 Write-Host "$($Green)== Input ($($InputEncode)) =="
-Write-Host "$($Yellow)$($DisplayInput)$($etc)`n"
+Write-Host "$($Yellow)$($DisplayInput)$($etc)"
 Write-Host "$($Green)== Output ($($OutputEncode)) =="
 Write-Host "$($Yellow)$($DisplayOutput)$($etc)"
 Write-Host ("{0}(Total: {1:N0} chars set to clipboard.)`n{2}" -f $Blue, $($OutputText.Length), $Reset)
