@@ -44,28 +44,30 @@ Simplified/Traditional) in C# applications.
 > Test projects don’t automatically copy natives from referenced projects. Either:
 > - Put natives in the test project and set **Copy to Output Directory**, or
 > - Add a small `Target` to copy them after build:
-    >   ```xml
-    > <Project Sdk="Microsoft.NET.Sdk">
-    > <PropertyGroup>
-    > <TargetFramework>net8.0</TargetFramework>
-    > </PropertyGroup>
-    > <ItemGroup>
-    > <!-- Place natives under ./natives/<RID>/ -->
-    > <None Include="natives\**\*.*">
-    > <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    > </None>
-    > </ItemGroup>
-    > <Target Name="CopyNatives" AfterTargets="Build">
-    > <ItemGroup>
-    > <NativeFiles Include="natives\**\*.dll;natives\**\*.so;natives\**\*.dylib" />
-    > </ItemGroup>
-    > <Copy SourceFiles="@(NativeFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
-    > </Target>
-    > <ItemGroup>
-    > <ProjectReference Include="..\OpenccFmmsegLib\OpenccFmmsegLib.csproj" />
-    > </ItemGroup>
-    > </Project>
-    >   ```
+
+```xml
+
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+    </PropertyGroup>
+    <ItemGroup>
+        <!-- Place natives under ./natives/<RID>/ -->
+        <None Include="natives\**\*.*">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
+    <Target Name="CopyNatives" AfterTargets="Build">
+        <ItemGroup>
+            <NativeFiles Include="natives\**\*.dll;natives\**\*.so;natives\**\*.dylib"/>
+        </ItemGroup>
+        <Copy SourceFiles="@(NativeFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true"/>
+    </Target>
+    <ItemGroup>
+        <ProjectReference Include="..\OpenccFmmsegLib\OpenccFmmsegLib.csproj"/>
+    </ItemGroup>
+</Project>       
+```
 
 #### Option 2 — From NuGet
 
