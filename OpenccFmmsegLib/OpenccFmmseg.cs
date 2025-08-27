@@ -197,14 +197,14 @@ namespace OpenccFmmsegLib
                 return 0;
 
             // Compute needed size first (pure, non-allocating & won’t rent yet)
-            int inputByteCount = Encoding.UTF8.GetByteCount(input);
+            var inputByteCount = Encoding.UTF8.GetByteCount(input);
 
             byte[] buffer = null;
             try
             {
                 buffer = ArrayPool<byte>.Shared.Rent(inputByteCount + 1);
 
-                int bytesWritten = Encoding.UTF8.GetBytes(input, 0, input.Length, buffer, 0);
+                var bytesWritten = Encoding.UTF8.GetBytes(input, 0, input.Length, buffer, 0);
                 buffer[bytesWritten] = 0; // null-terminate
 
                 return opencc_zho_check(_openccInstance, buffer);
@@ -262,11 +262,11 @@ namespace OpenccFmmsegLib
             if (ptr == IntPtr.Zero) return null;
 
             var p = (byte*)ptr;
-            int len = 0;
+            var len = 0;
             while (p[len] != 0) len++;
 
             var buffer = new byte[len];
-            for (int i = 0; i < len; i++) buffer[i] = p[i];
+            for (var i = 0; i < len; i++) buffer[i] = p[i];
             return Utf8Strict.GetString(buffer);
         }
 
