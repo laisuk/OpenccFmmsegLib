@@ -237,101 +237,74 @@ namespace OpenccFmmsegLib
         }
 
         /// <summary>
-        /// Converts a null-terminated UTF-8 string from unmanaged memory to a managed string.
-        /// Uses fast 64-bit or 32-bit scanning where possible.
+        /// Shared UTF-8 decoder instance.
+        /// Configured to never emit a BOM and to throw on invalid byte sequences.
         /// </summary>
-        /// <param name="ptr">Pointer to the unmanaged UTF-8 string.</param>
-        /// <param name="maxBytes"></param>
-        /// <returns>The managed string, or null if the pointer is zero.</returns>
-        // ReSharper disable PossibleNullReferenceException
-        private static unsafe string Utf8BytesToString(IntPtr ptr, int maxBytes = 0)
+        private static readonly UTF8Encoding Utf8Strict =
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
+        /// <summary>
+        /// Converts a null-terminated UTF-8 string from unmanaged memory into a managed string.
+        /// </summary>
+        /// <param name="ptr">
+        /// Pointer to the start of a NUL-terminated UTF-8 byte sequence in unmanaged memory.
+        /// </param>
+        /// <returns>
+        /// The decoded managed string, or <c>null</c> if <paramref name="ptr"/> is <see cref="IntPtr.Zero"/>.
+        /// </returns>
+        /// <remarks>
+        /// This method scans memory one byte at a time until it encounters a NUL terminator (0x00),
+        /// then decodes the collected bytes as UTF-8. It is safe because it never reads beyond
+        /// the terminator. The caller must ensure that the pointer refers to valid, accessible memory.
+        /// </remarks>
+        private static unsafe string Utf8BytesToString(IntPtr ptr)
         {
-            if (ptr == IntPtr.Zero)
-                return null;
+            if (ptr == IntPtr.Zero) return null;
 
-            var bytePtr = (byte*)ptr;
-            int index = 0;
-            int limit = maxBytes > 0 ? maxBytes : int.MaxValue;
+            var p = (byte*)ptr;
+            int len = 0;
+            while (p[len] != 0) len++;
 
-            try
-            {
-                if (IntPtr.Size == 8)
-                {
-                    // 64-bit scan
-                    while (index + 8 <= limit)
-                    {
-                        ulong chunk = *((ulong*)(bytePtr + index));
-                        if (HasZeroByte64(chunk))
-                        {
-                            for (int i = 0; i < 8; i++)
-                            {
-                                if (bytePtr[index + i] == 0)
-                                    return Encoding.UTF8.GetString(bytePtr, index + i);
-                            }
-                        }
-
-                        index += 8;
-                    }
-                }
-                else
-                {
-                    // 32-bit scan
-                    while (index + 4 <= limit)
-                    {
-                        uint chunk = *((uint*)(bytePtr + index));
-                        if (HasZeroByte32(chunk))
-                        {
-                            for (int i = 0; i < 4; i++)
-                            {
-                                if (bytePtr[index + i] == 0)
-                                    return Encoding.UTF8.GetString(bytePtr, index + i);
-                            }
-                        }
-
-                        index += 4;
-                    }
-                }
-            }
-            catch
-            {
-                // In case of memory access error, fallback to byte scan
-            }
-
-            // Byte-by-byte scan to null terminator or maxLength
-            while (index < limit && bytePtr[index] != 0)
-                index++;
-
-            return Encoding.UTF8.GetString(bytePtr, index);
+            var buffer = new byte[len];
+            for (int i = 0; i < len; i++) buffer[i] = p[i];
+            return Utf8Strict.GetString(buffer);
         }
 
-        // private static unsafe string Utf8BytesToString(IntPtr ptr)
-        // {
-        //     if (ptr == IntPtr.Zero)
-        //         return null;
-        //
-        //     var bytePtr = (byte*)ptr;
-        //     var length = 0;
-        //
-        //     // Find null-terminator length            
-        //     for (byte* p = bytePtr; *p != 0; p++)
-        //     {
-        //         length++;
-        //     }
-        //
-        //     // Decode directly from the unmanaged memory
-        //     return Encoding.UTF8.GetString(bytePtr, length);
-        // }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool HasZeroByte64(ulong x)
+        /// <summary>
+        /// Converts a null-terminated UTF-8 string from unmanaged memory into a managed string,
+        /// with an explicit maximum bound on the number of bytes to read.
+        /// </summary>
+        /// <param name="ptr">
+        /// Pointer to the start of a UTF-8 byte sequence in unmanaged memory.
+        /// </param>
+        /// <param name="maxBytes">
+        /// The maximum number of bytes to scan before giving up.
+        /// Must be greater than zero. If no NUL terminator is found within this bound,
+        /// the method decodes up to <paramref name="maxBytes"/>.
+        /// </param>
+        /// <returns>
+        /// The decoded managed string, or <c>null</c> if <paramref name="ptr"/> is <see cref="IntPtr.Zero"/>.
+        /// </returns>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown if <paramref name="maxBytes"/> is less than or equal to zero.
+        /// </exception>
+        /// <remarks>
+        /// This overload is useful when the unmanaged buffer has a known length.
+        /// It guarantees that no reads occur beyond <paramref name="maxBytes"/>,
+        /// protecting against invalid memory access if the buffer is not properly NUL-terminated.
+        /// </remarks>
+        public static unsafe string Utf8BytesToString(IntPtr ptr, int maxBytes)
         {
-            return ((x - 0x0101010101010101UL) & ~x & 0x8080808080808080UL) != 0;
-        }
+            if (ptr == IntPtr.Zero) return null;
+            if (maxBytes <= 0) throw new ArgumentOutOfRangeException(nameof(maxBytes));
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool HasZeroByte32(uint x)
-        {
-            return ((x - 0x01010101U) & ~x & 0x80808080U) != 0;
+            var p = (byte*)ptr;
+            var len = 0;
+            while (len < maxBytes && p[len] != 0) len++;
+
+            var buffer = new byte[len];
+            for (var i = 0; i < len; i++) buffer[i] = p[i];
+            return Utf8Strict.GetString(buffer);
         }
 
         /// <summary>
