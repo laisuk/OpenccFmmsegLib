@@ -7,10 +7,33 @@ param (
     $Punct = ""
 )
 
-# Load the assembly
-$nativePath = Join-Path $PSScriptRoot "bin\Release\netstandard2.0\runtimes\win-x64\native"
+# Detect current RID
+if ($IsWindows) {
+    $rid = "win-x64"   # or win-x86 if you're packaging 32-bit
+}
+elseif ($IsLinux) {
+    $rid = "linux-x64"
+}
+elseif ($IsMacOS) {
+    # pick based on arch
+    if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq "Arm64") {
+        $rid = "osx-arm64"
+    } else {
+        $rid = "osx-x64"
+    }
+}
+else {
+    throw "Unsupported OS for native runtime detection"
+}
+
+# Build native path
+$nativePath = Join-Path $PSScriptRoot "bin\Release\netstandard2.0\runtimes\$rid\native"
+
+# Prepend to PATH so the .dll/.so/.dylib is found
 $env:PATH = "$nativePath;$env:PATH"
-Add-Type -Path "${PSScriptRoot}\bin\Release\netstandard2.0\OpenccFmmsegLib.dll"
+
+# Load managed assembly
+Add-Type -Path (Join-Path $PSScriptRoot "bin\Release\netstandard2.0\OpenccFmmsegLib.dll")
 
 # Define ANSI escape codes for colors
 $Red = "`e[1;31m"
