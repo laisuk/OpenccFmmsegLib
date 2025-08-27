@@ -63,7 +63,7 @@ If initialization fails or a native error occurs, an `InvalidOperationException`
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
 
 ## Acknowledgements
 
