@@ -35,7 +35,7 @@ namespace OpenccFmmsegLib
         private bool _disposed;
 
         #region Native C API Region
-        
+
         // Define DLL functions using P/Invoke
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr opencc_new();
@@ -57,7 +57,7 @@ namespace OpenccFmmsegLib
 
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         private static extern void opencc_error_free(IntPtr str);
-        
+
         #endregion
 
         // Static constructor to pre-encode common config strings for efficient native interop

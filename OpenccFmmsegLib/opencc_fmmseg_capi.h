@@ -3,6 +3,7 @@
 
 #ifdef __cplusplus
 extern "C" {
+
 #endif
 
 #include <stdbool.h>
@@ -16,7 +17,7 @@ extern "C" {
  *
  * @return A pointer to a new instance of OpenCC FMMSEG.
  */
-void *opencc_new();
+void* opencc_new();
 
 /*
 // Reserved for future use.
@@ -35,7 +36,7 @@ void *opencc_new_from_dicts();
  * @return A newly allocated UTF-8 string with the converted output.
  *         The result must be freed using `opencc_string_free()`.
  */
-char *opencc_convert(const void *instance, const char *input, const char *config, bool punctuation);
+char* opencc_convert(const void* instance, const char* input, const char* config, bool punctuation);
 
 /**
  * Converts a UTF-8 string with explicit length using the specified OpenCC config.
@@ -49,11 +50,11 @@ char *opencc_convert(const void *instance, const char *input, const char *config
  * @return A newly allocated UTF-8 string with the converted output.
  *         The result must be freed using `opencc_string_free()`.
  */
-char *opencc_convert_len(
-    const void *instance,
-    const char *input,
+char* opencc_convert_len(
+    const void* instance,
+    const char* input,
     size_t input_len,
-    const char *config,
+    const char* config,
     bool punctuation);
 
 /**
@@ -62,7 +63,7 @@ char *opencc_convert_len(
  * @param instance A pointer to the OpenCC instance.
  * @return true if parallel processing is enabled, false otherwise.
  */
-bool opencc_get_parallel(const void *instance);
+bool opencc_get_parallel(const void* instance);
 
 /**
  * Enables or disables parallel processing for the instance.
@@ -70,7 +71,7 @@ bool opencc_get_parallel(const void *instance);
  * @param instance     A pointer to the OpenCC instance.
  * @param is_parallel  Set to true to enable parallel processing, false to disable.
  */
-void opencc_set_parallel(const void *instance, bool is_parallel);
+void opencc_set_parallel(const void* instance, bool is_parallel);
 
 /**
  * Checks if the input string is valid Simplified or Traditional Chinese.
@@ -83,7 +84,7 @@ void opencc_set_parallel(const void *instance, bool is_parallel);
  *         2 = Simplified Chinese,
  *         -1 = Invalid.
  */
-int opencc_zho_check(const void *instance, const char *input);
+int opencc_zho_check(const void* instance, const char* input);
 
 /**
  * Frees an instance of OpenCC returned by `opencc_new`.
@@ -91,7 +92,7 @@ int opencc_zho_check(const void *instance, const char *input);
  * @param instance A pointer to an OpenCC instance.
  *                 Passing NULL is safe and does nothing.
  */
-void opencc_delete(const void *instance);
+void opencc_delete(const void* instance);
 
 /**
  * @deprecated Use `opencc_delete()` instead.
@@ -101,7 +102,7 @@ void opencc_delete(const void *instance);
  * NOTE: Do not use this to free strings returned by `opencc_convert` or `opencc_last_error`.
  * Use `opencc_string_free` or `opencc_error_free` instead.
  */
-void opencc_free(const void *instance);
+void opencc_free(const void* instance);
 
 
 /**
@@ -110,7 +111,7 @@ void opencc_free(const void *instance);
  * @param ptr A pointer to a string previously returned by conversion functions.
  *            Passing NULL is safe and does nothing.
  */
-void opencc_string_free(const char *ptr);
+void opencc_string_free(const char* ptr);
 
 /**
  * Returns the last error message as a null-terminated C string.
@@ -120,7 +121,7 @@ void opencc_string_free(const char *ptr);
  *
  * @return A pointer to a null-terminated error message string.
  */
-char *opencc_last_error();
+char* opencc_last_error();
 
 /**
  * Frees a string returned by `opencc_last_error`.

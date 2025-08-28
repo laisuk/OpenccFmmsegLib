@@ -17,12 +17,16 @@
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
         <AssemblyVersion>1.0.0.0</AssemblyVersion>
         <FileVersion>1.0.0.0</FileVersion>
+        <PackageReleaseNotes>
+            v1.0.0
+            Initial release to Nuget
+        </PackageReleaseNotes>
     </PropertyGroup>
 
     <!-- Include README + LISENCE in package -->
     <ItemGroup>
-        <None Include="..\README.md" Pack="true" PackagePath="\"/>
-        <None Include="..\LICENSE" Pack="true" PackagePath="\"/>
+        <None Include="..\README.md" Pack="true" PackagePath="\" />
+        <None Include="..\LICENSE" Pack="true" PackagePath="\" />
     </ItemGroup>
 
     <!-- Pack native assets to the same paths; do NOT copy on build -->
@@ -39,7 +43,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="System.Memory" Version="4.6.3"/>
+        <PackageReference Include="System.Memory" Version="4.6.3" />
     </ItemGroup>
-    
+
 </Project>
