@@ -267,10 +267,12 @@ namespace OpenccFmmsegLib
 
             var p = (byte*)ptr;
             var len = 0;
-            while (p[len] != 0) len++;
+            while (p != null && p[len] != 0) len++;
 
             var buffer = new byte[len];
-            for (var i = 0; i < len; i++) buffer[i] = p[i];
+            for (var i = 0; i < len; i++)
+                if (p != null)
+                    buffer[i] = p[i];
             return Utf8Strict.GetString(buffer);
         }
 
@@ -304,10 +306,12 @@ namespace OpenccFmmsegLib
 
             var p = (byte*)ptr;
             var len = 0;
-            while (len < maxBytes && p[len] != 0) len++;
+            while (len < maxBytes && p != null && p[len] != 0) len++;
 
             var buffer = new byte[len];
-            for (var i = 0; i < len; i++) buffer[i] = p[i];
+            for (var i = 0; i < len; i++)
+                if (p != null)
+                    buffer[i] = p[i];
             return Utf8Strict.GetString(buffer);
         }
 
