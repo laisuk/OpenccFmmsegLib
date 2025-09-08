@@ -263,17 +263,19 @@ namespace OpenccFmmsegLib
         /// </remarks>
         private static unsafe string Utf8BytesToString(IntPtr ptr)
         {
-            if (ptr == IntPtr.Zero) return null;
+            if (ptr == IntPtr.Zero)
+                return string.Empty;
 
-            var p = (byte*)ptr;
-            var len = 0;
-            while (p != null && p[len] != 0) len++;
+            var bytePtr = (byte*)ptr;
+            var length = 0;
 
-            var buffer = new byte[len];
-            for (var i = 0; i < len; i++)
-                if (p != null)
-                    buffer[i] = p[i];
-            return Utf8Strict.GetString(buffer);
+            // Find null-terminator length
+            for (var p = bytePtr; *p != 0; p++)
+            {
+                length++;
+            }
+
+            return Utf8Strict.GetString(bytePtr, length);
         }
 
         /// <summary>
