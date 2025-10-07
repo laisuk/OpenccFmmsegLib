@@ -261,6 +261,7 @@ namespace OpenccFmmsegLib
         /// then decodes the collected bytes as UTF-8. It is safe because it never reads beyond
         /// the terminator. The caller must ensure that the pointer refers to valid, accessible memory.
         /// </remarks>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static unsafe string Utf8BytesToString(IntPtr ptr)
         {
             if (ptr == IntPtr.Zero)
@@ -301,6 +302,7 @@ namespace OpenccFmmsegLib
         /// It guarantees that no reads occur beyond <paramref name="maxBytes"/>,
         /// protecting against invalid memory access if the buffer is not properly NUL-terminated.
         /// </remarks>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe string Utf8BytesToString(IntPtr ptr, int maxBytes)
         {
             if (ptr == IntPtr.Zero) return null;

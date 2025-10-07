@@ -15,12 +15,13 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-        <AssemblyVersion>1.0.0.0</AssemblyVersion>
-        <FileVersion>1.0.0.0</FileVersion>
+        <AssemblyVersion>1.1.0.0</AssemblyVersion>
+        <FileVersion>1.1.0.0</FileVersion>
         <PackageReleaseNotes>
-            v1.0.0
-            Initial release to Nuget
+            v1.1.0
+            Update opencc-fmmseg core runtimes to v0.8.2
         </PackageReleaseNotes>
+        <Version>1.1.0</Version>
     </PropertyGroup>
 
     <!-- Include README + LISENCE in package -->
