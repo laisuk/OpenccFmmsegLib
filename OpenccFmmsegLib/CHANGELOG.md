@@ -6,6 +6,12 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.2.0] - 2025-10-22
+
+### Changed
+
+- Update `opencc-fmmseg` C API to v0.8.3
+
 ## [1.1.0] - 2025-10-07
 
 ### Changed
