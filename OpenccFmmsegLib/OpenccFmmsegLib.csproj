@@ -15,13 +15,17 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-        <AssemblyVersion>1.2.0.0</AssemblyVersion>
-        <FileVersion>1.2.0.0</FileVersion>
+        <AssemblyVersion>1.2.1.0</AssemblyVersion>
+        <FileVersion>1.2.1.0</FileVersion>
         <PackageReleaseNotes>
-            v1.2.0
-            Update opencc-fmmseg core runtimes to v0.8.3
+            v1.2.1
+            Added XML documentation for IDE intelliSense
         </PackageReleaseNotes>
-        <Version>1.2.0</Version>
+        <Version>1.2.1</Version>
+        <!-- Generate the XML doc file alongside the DLL -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <!-- (Optional) don’t warn about undocumented public members -->
+        <NoWarn>$(NoWarn);1591</NoWarn>
     </PropertyGroup>
 
     <!-- Include README + LISENCE in package -->

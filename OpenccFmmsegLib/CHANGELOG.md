@@ -6,6 +6,14 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.2.1] - 2025-10-28
+
+### Added
+
+- Added XML documentation for IDE intelliSense 
+
+---
+
 ## [1.2.0] - 2025-10-22
 
 ### Changed
