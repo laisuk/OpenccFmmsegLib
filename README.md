@@ -18,8 +18,26 @@ Simplified/Traditional) in C# applications.
 
 ## Supported Conversion Configurations
 
-`s2t`, `t2s`, `s2tw`, `tw2s`, `s2twp`, `tw2sp`, `s2hk`, `hk2s`, `t2tw`,  
-`t2twp`, `t2hk`, `tw2t`, `tw2tp`, `hk2t`, `t2jp`, `jp2t`
+| Config | Description                                     |
+|--------|-------------------------------------------------|
+| s2t    | Simplified → Traditional                        |
+| t2s    | Traditional → Simplified                        |
+| s2tw   | Simplified → Traditional (Taiwan)               |
+| tw2s   | Traditional (Taiwan) → Simplified               |
+| s2twp  | Simplified → Traditional (Taiwan, idioms)       |
+| tw2sp  | Traditional (Taiwan, idioms) → Simplified       |
+| s2hk   | Simplified → Traditional (Hong Kong)            |
+| hk2s   | Traditional (Hong Kong) → Simplified            |
+| t2tw   | Traditional → Traditional (Taiwan)              |
+| tw2t   | Traditional (Taiwan) → Traditional              |
+| t2twp  | Traditional → Traditional (Taiwan, idioms)      |
+| tw2tp  | Traditional (Taiwan, idioms) → Traditional      |
+| t2hk   | Traditional → Traditional (Hong Kong)           |
+| hk2t   | Traditional (Hong Kong) → Traditional           |
+| t2jp   | Traditional Kyujitai → Japanese Kanji Shinjitai |
+| jp2t   | Japanese Kanji Shinjitai → Traditional Kyujitai |
+
+---
 
 ## Getting Started
 
