@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Buffers;
 using System.Runtime.CompilerServices;
@@ -15,9 +14,6 @@ namespace OpenccFmmsegLib
     /// </remarks>
     public sealed class OpenccFmmseg : IDisposable
     {
-        // Define constants
-        private const string DllPath = "opencc_fmmseg_capi";
-
         // Pre-encoded config bytes for common configurations
         private static readonly Dictionary<string, byte[]> EncodedConfigCache =
             new Dictionary<string, byte[]>(StringComparer.Ordinal);
@@ -33,32 +29,6 @@ namespace OpenccFmmsegLib
 
         private IntPtr _openccInstance;
         private bool _disposed;
-
-        #region Native C API Region
-
-        // Define DLL functions using P/Invoke
-        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr opencc_new();
-
-        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
-        private static extern void opencc_delete(IntPtr opencc);
-
-        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr opencc_convert(IntPtr opencc, byte[] input, byte[] config, bool punctuation);
-
-        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
-        private static extern int opencc_zho_check(IntPtr opencc, byte[] input);
-
-        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
-        private static extern void opencc_string_free(IntPtr str);
-
-        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr opencc_last_error();
-
-        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
-        private static extern void opencc_error_free(IntPtr str);
-
-        #endregion
 
         // Static constructor to pre-encode common config strings for efficient native interop
         static OpenccFmmseg()
@@ -83,7 +53,7 @@ namespace OpenccFmmsegLib
         /// <exception cref="InvalidOperationException">Thrown if the native OpenCC instance cannot be created.</exception>
         public OpenccFmmseg()
         {
-            _openccInstance = opencc_new();
+            _openccInstance = OpenccFmmsegNative.opencc_new();
             if (_openccInstance != IntPtr.Zero) return;
             var lastError = LastError();
             throw new InvalidOperationException($"Failed to initialize OpenCC. {lastError}".Trim());
@@ -114,7 +84,7 @@ namespace OpenccFmmsegLib
 
             if (_openccInstance != IntPtr.Zero)
             {
-                opencc_delete(_openccInstance);
+                OpenccFmmsegNative.opencc_delete(_openccInstance);
                 _openccInstance = IntPtr.Zero;
             }
 
@@ -166,7 +136,7 @@ namespace OpenccFmmsegLib
                 }
 
                 // Native call
-                var output = opencc_convert(_openccInstance, inputBuffer, configBytes, punctuation);
+                var output = OpenccFmmsegNative.opencc_convert(_openccInstance, inputBuffer, configBytes, punctuation);
 
                 try
                 {
@@ -175,7 +145,7 @@ namespace OpenccFmmsegLib
                 finally
                 {
                     if (output != IntPtr.Zero)
-                        opencc_string_free(output);
+                        OpenccFmmsegNative.opencc_string_free(output);
                 }
             }
             finally
@@ -211,7 +181,7 @@ namespace OpenccFmmsegLib
                 var bytesWritten = Encoding.UTF8.GetBytes(input, 0, input.Length, buffer, 0);
                 buffer[bytesWritten] = 0; // null-terminate
 
-                return opencc_zho_check(_openccInstance, buffer);
+                return OpenccFmmsegNative.opencc_zho_check(_openccInstance, buffer);
             }
             finally
             {
@@ -226,7 +196,7 @@ namespace OpenccFmmsegLib
         /// <returns>The last error message, or an empty string if none.</returns>
         public static string LastError()
         {
-            var cLastError = opencc_last_error();
+            var cLastError = OpenccFmmsegNative.opencc_last_error();
             if (cLastError == IntPtr.Zero)
                 return string.Empty;
 
@@ -236,7 +206,7 @@ namespace OpenccFmmsegLib
             }
             finally
             {
-                opencc_error_free(cLastError);
+                OpenccFmmsegNative.opencc_error_free(cLastError);
             }
         }
 

@@ -1,0 +1,116 @@
+using System;
+using System.Runtime.InteropServices;
+
+namespace OpenccFmmsegLib
+{
+    /// <summary>
+    /// Provides the raw P/Invoke declarations for the native <c>opencc_fmmseg_capi</c> library.
+    /// </summary>
+    /// <remarks>
+    /// This class is internal and should not be used directly by consumers.
+    /// It defines all unmanaged entry points required by <see cref="OpenccFmmseg"/>,
+    /// mapping the native C API functions one-to-one via <see cref="DllImportAttribute"/>.
+    /// <para>
+    /// The managed wrapper <see cref="OpenccFmmseg"/> handles resource lifetime,
+    /// error checking, and UTF-8 marshaling. Callers must never invoke these
+    /// functions directly unless they understand the unmanaged contract.
+    /// </para>
+    /// </remarks>
+    internal static class OpenccFmmsegNative
+    {
+        /// <summary>
+        /// The name of the native shared library (<c>opencc_fmmseg_capi</c>).
+        /// The .NET runtime automatically appends the correct extension based on the platform:
+        /// <list type="bullet">
+        /// <item><description><c>.dll</c> on Windows</description></item>
+        /// <item><description><c>.so</c> on Linux</description></item>
+        /// <item><description><c>.dylib</c> on macOS</description></item>
+        /// </list>
+        /// </summary>
+        private const string DllPath = "opencc_fmmseg_capi";
+
+        /// <summary>
+        /// Creates a new <c>OpenCC</c> instance in unmanaged memory.
+        /// </summary>
+        /// <returns>
+        /// A pointer to the newly allocated native <c>OpenCC</c> object,
+        /// or <see cref="IntPtr.Zero"/> if initialization failed.
+        /// </returns>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr opencc_new();
+
+        /// <summary>
+        /// Deletes a previously created <c>OpenCC</c> instance and releases its resources.
+        /// </summary>
+        /// <param name="opencc">
+        /// Pointer returned from <see cref="opencc_new"/>. Must not be <see cref="IntPtr.Zero"/>.
+        /// </param>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void opencc_delete(IntPtr opencc);
+
+        /// <summary>
+        /// Converts input UTF-8 text using the specified OpenCC configuration and punctuation option.
+        /// </summary>
+        /// <param name="opencc">Pointer to a valid native <c>OpenCC</c> instance.</param>
+        /// <param name="input">UTF-8 encoded byte array of the input string, null-terminated.</param>
+        /// <param name="config">UTF-8 encoded null-terminated string representing the conversion config name (e.g. <c>"s2t"</c>).</param>
+        /// <param name="punctuation">Whether to convert punctuation marks (<c>true</c>) or leave them unchanged (<c>false</c>).</param>
+        /// <returns>
+        /// Pointer to a newly allocated UTF-8 null-terminated string containing the converted text.
+        /// The caller must free this memory using <see cref="opencc_string_free"/>.
+        /// </returns>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr opencc_convert(
+            IntPtr opencc,
+            byte[] input,
+            byte[] config,
+            bool punctuation);
+
+        /// <summary>
+        /// Checks the language type of the input Chinese text (Simplified or Traditional).
+        /// </summary>
+        /// <param name="opencc">Pointer to a valid native <c>OpenCC</c> instance.</param>
+        /// <param name="input">UTF-8 encoded null-terminated input string.</param>
+        /// <returns>
+        /// An integer code defined by the native OpenCC implementation:
+        /// <list type="bullet">
+        /// <item><description><c>1</c> = Traditional Chinese</description></item>
+        /// <item><description><c>2</c> = Simplified Chinese</description></item>
+        /// <item><description><c>0</c> = Other or undetermined</description></item>
+        /// </list>
+        /// </returns>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int opencc_zho_check(IntPtr opencc, byte[] input);
+
+        /// <summary>
+        /// Frees a UTF-8 string allocated by <see cref="opencc_convert"/>.
+        /// </summary>
+        /// <param name="str">
+        /// Pointer to the unmanaged string previously returned by <see cref="opencc_convert"/>.
+        /// Safe to call with <see cref="IntPtr.Zero"/>.
+        /// </param>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void opencc_string_free(IntPtr str);
+
+        /// <summary>
+        /// Retrieves the last error message recorded by the native library.
+        /// </summary>
+        /// <returns>
+        /// Pointer to a UTF-8 null-terminated error string owned by the native side,
+        /// or <see cref="IntPtr.Zero"/> if no error is present.
+        /// The caller must release it using <see cref="opencc_error_free"/>.
+        /// </returns>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr opencc_last_error();
+
+        /// <summary>
+        /// Frees the error message string returned by <see cref="opencc_last_error"/>.
+        /// </summary>
+        /// <param name="str">
+        /// Pointer to the unmanaged error string to free.
+        /// Safe to call with <see cref="IntPtr.Zero"/>.
+        /// </param>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void opencc_error_free(IntPtr str);
+    }
+}
