@@ -64,7 +64,7 @@ namespace OpenccFmmsegLib
             IntPtr opencc,
             byte[] input,
             byte[] config,
-            bool punctuation);
+            [MarshalAs(UnmanagedType.I1)] bool punctuation);
 
         /// <summary>
         /// Checks the language type of the input Chinese text (Simplified or Traditional).

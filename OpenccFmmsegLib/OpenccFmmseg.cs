@@ -248,47 +248,7 @@ namespace OpenccFmmsegLib
 
             return Utf8Strict.GetString(bytePtr, length);
         }
-
-        /// <summary>
-        /// Converts a null-terminated UTF-8 string from unmanaged memory into a managed string,
-        /// with an explicit maximum bound on the number of bytes to read.
-        /// </summary>
-        /// <param name="ptr">
-        /// Pointer to the start of a UTF-8 byte sequence in unmanaged memory.
-        /// </param>
-        /// <param name="maxBytes">
-        /// The maximum number of bytes to scan before giving up.
-        /// Must be greater than zero. If no NUL terminator is found within this bound,
-        /// the method decodes up to <paramref name="maxBytes"/>.
-        /// </param>
-        /// <returns>
-        /// The decoded managed string, or <c>null</c> if <paramref name="ptr"/> is <see cref="IntPtr.Zero"/>.
-        /// </returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Thrown if <paramref name="maxBytes"/> is less than or equal to zero.
-        /// </exception>
-        /// <remarks>
-        /// This overload is useful when the unmanaged buffer has a known length.
-        /// It guarantees that no reads occur beyond <paramref name="maxBytes"/>,
-        /// protecting against invalid memory access if the buffer is not properly NUL-terminated.
-        /// </remarks>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe string Utf8BytesToString(IntPtr ptr, int maxBytes)
-        {
-            if (ptr == IntPtr.Zero) return null;
-            if (maxBytes <= 0) throw new ArgumentOutOfRangeException(nameof(maxBytes));
-
-            var p = (byte*)ptr;
-            var len = 0;
-            while (len < maxBytes && p != null && p[len] != 0) len++;
-
-            var buffer = new byte[len];
-            for (var i = 0; i < len; i++)
-                if (p != null)
-                    buffer[i] = p[i];
-            return Utf8Strict.GetString(buffer);
-        }
-
+        
         /// <summary>
         /// Throws an <see cref="ObjectDisposedException"/> if the instance has been disposed.
         /// </summary>
