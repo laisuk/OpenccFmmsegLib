@@ -158,6 +158,62 @@ namespace OpenccFmmsegLib
         }
 
         /// <summary>
+        /// Converts the input Chinese text using a numeric OpenCC config (opencc_config_t).
+        /// </summary>
+        /// <param name="input">The input string to convert.</param>
+        /// <param name="config">Numeric config value (e.g. OPENCC_CONFIG_S2TWP).</param>
+        /// <param name="punctuation">Whether to convert punctuation as well.</param>
+        /// <returns>
+        /// The converted string. If <paramref name="config"/> is invalid, the native side returns
+        /// an allocated error message string like "Invalid config: &lt;value&gt;" (and also stores it as last error).
+        /// Returns empty string only if input is null/empty, or if native returned NULL.
+        /// </returns>
+        private string ConvertCfgCore(string input, int config, bool punctuation = false)
+        {
+            if (string.IsNullOrEmpty(input))
+                return string.Empty;
+
+            ThrowIfDisposed();
+
+            var inputByteCount = Encoding.UTF8.GetByteCount(input);
+            byte[] inputBuffer = null;
+
+            try
+            {
+                inputBuffer = ArrayPool<byte>.Shared.Rent(inputByteCount + 1);
+
+                var written = Encoding.UTF8.GetBytes(input, 0, input.Length, inputBuffer, 0);
+                inputBuffer[written] = 0x00; // NUL
+
+                var output = OpenccFmmsegNative.opencc_convert_cfg(_openccInstance, inputBuffer, config, punctuation);
+
+                try
+                {
+                    // NOTE: native contract says invalid config may still return an allocated error message string.
+                    return Utf8BytesToString(output);
+                }
+                finally
+                {
+                    if (output != IntPtr.Zero)
+                        OpenccFmmsegNative.opencc_string_free(output);
+                }
+            }
+            finally
+            {
+                if (inputBuffer != null)
+                    ArrayPool<byte>.Shared.Return(inputBuffer);
+            }
+        }
+
+        /// <summary>
+        /// Converts the input Chinese text using a numeric OpenCC config (typed enum).
+        /// </summary>
+        public string ConvertCfg(string input, OpenccConfig config, bool punctuation = false)
+        {
+            return ConvertCfgCore(input, (int)config, punctuation);
+        }
+
+        /// <summary>
         /// Checks if the input string is Chinese text using the OpenCC language check.
         /// </summary>
         /// <param name="input">The input string to check.</param>
@@ -210,6 +266,38 @@ namespace OpenccFmmsegLib
             }
         }
 
+        internal static bool TryParseConfig(
+            string name,
+            out OpenccConfig config)
+        {
+            config = default;
+
+            if (string.IsNullOrWhiteSpace(name))
+                return false;
+
+            // UTF-8 + '\0'
+            var bytes = Encoding.UTF8.GetBytes(name + "\0");
+
+            if (!OpenccFmmsegNative.opencc_config_name_to_id(bytes, out var id))
+                return false;
+
+            config = (OpenccConfig)id;
+            return true;
+        }
+
+        internal static bool TryGetConfigName(OpenccConfig config, out string name)
+        {
+            var ptr = OpenccFmmsegNative.opencc_config_id_to_name((int)config);
+            if (ptr == IntPtr.Zero)
+            {
+                name = string.Empty;
+                return false;
+            }
+
+            name = Utf8BytesToString(ptr);
+            return true;
+        }
+
         /// <summary>
         /// Shared UTF-8 decoder instance.
         /// Configured to never emit a BOM and to throw on invalid byte sequences.
@@ -248,7 +336,7 @@ namespace OpenccFmmsegLib
 
             return Utf8Strict.GetString(bytePtr, length);
         }
-        
+
         /// <summary>
         /// Throws an <see cref="ObjectDisposedException"/> if the instance has been disposed.
         /// </summary>
@@ -257,6 +345,133 @@ namespace OpenccFmmsegLib
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(OpenccFmmseg), "The OpenCC instance has been disposed.");
+        }
+    }
+
+    // ReSharper disable InconsistentNaming
+    // ReSharper disable IdentifierTypo
+
+    /// <summary>
+    /// Numeric OpenCC configuration identifiers (opencc_config_t).
+    /// These values must match the native enum exactly.
+    /// </summary>
+    // NOTE:
+    // Enum member names intentionally follow OpenCC canonical identifiers
+    // (S2TW, T2HK, etc.) to preserve cross-language consistency.
+    // Do NOT rename to satisfy C# naming rules.
+    public enum OpenccConfig
+    {
+        /// <summary>Simplified Chinese → Traditional Chinese</summary>
+        S2T = 1,
+
+        /// <summary>Simplified → Traditional (Taiwan)</summary>
+        S2TW = 2,
+
+        /// <summary>Simplified → Traditional (Taiwan, with phrases)</summary>
+        S2TWP = 3,
+
+        /// <summary>Simplified → Traditional (Hong Kong)</summary>
+        S2HK = 4,
+
+        /// <summary>Traditional Chinese → Simplified Chinese</summary>
+        T2S = 5,
+
+        /// <summary>Traditional → Taiwan Traditional</summary>
+        T2TW = 6,
+
+        /// <summary>Traditional → Taiwan Traditional (with phrases)</summary>
+        T2TWP = 7,
+
+        /// <summary>Traditional → Hong Kong Traditional</summary>
+        T2HK = 8,
+
+        /// <summary>Taiwan Traditional → Simplified</summary>
+        TW2S = 9,
+
+        /// <summary>Taiwan Traditional → Simplified (variant)</summary>
+        TW2SP = 10,
+
+        /// <summary>Taiwan Traditional → Traditional</summary>
+        TW2T = 11,
+
+        /// <summary>Taiwan Traditional → Traditional (variant)</summary>
+        TW2TP = 12,
+
+        /// <summary>Hong Kong Traditional → Simplified</summary>
+        HK2S = 13,
+
+        /// <summary>Hong Kong Traditional → Traditional</summary>
+        HK2T = 14,
+
+        /// <summary>Japanese Kanji variants → Traditional Chinese</summary>
+        JP2T = 15,
+
+        /// <summary>Traditional Chinese → Japanese Kanji variants</summary>
+        T2JP = 16
+    }
+
+    // ReSharper restore IdentifierTypo
+    // ReSharper restore InconsistentNaming
+
+    /// <summary>
+    /// Extension helpers for <see cref="OpenccConfig"/>.
+    /// </summary>
+    /// <remarks>
+    /// This class provides utility methods that operate on <see cref="OpenccConfig"/>
+    /// without exposing numeric configuration IDs or native OpenCC details.
+    /// </remarks>
+    public static class OpenccConfigExtensions
+    {
+        /// <summary>
+        /// Converts an <see cref="OpenccConfig"/> value to its canonical OpenCC
+        /// configuration name.
+        /// </summary>
+        /// <param name="config">
+        /// The OpenCC configuration enum value.
+        /// </param>
+        /// <returns>
+        /// A lowercase canonical configuration name
+        /// (for example, <c>"s2t"</c>, <c>"s2twp"</c>, <c>"t2hk"</c>),
+        /// suitable for logging, display, file naming, or interoperability
+        /// with OpenCC-compatible tools.
+        /// </returns>
+        /// <remarks>
+        /// <para>
+        /// The returned string follows the official OpenCC canonical naming
+        /// convention and is independent of the enum member name casing.
+        /// </para>
+        /// <para>
+        /// This method does not perform any allocation beyond returning the
+        /// constant string literal and does not invoke native code.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown if <paramref name="config"/> is not a valid <see cref="OpenccConfig"/> value.
+        /// </exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static string ToCanonicalName(this OpenccConfig config)
+        {
+            switch (config)
+            {
+                case OpenccConfig.S2T: return "s2t";
+                case OpenccConfig.S2TW: return "s2tw";
+                case OpenccConfig.S2TWP: return "s2twp";
+                case OpenccConfig.S2HK: return "s2hk";
+                case OpenccConfig.T2S: return "t2s";
+                case OpenccConfig.T2TW: return "t2tw";
+                case OpenccConfig.T2TWP: return "t2twp";
+                case OpenccConfig.T2HK: return "t2hk";
+                case OpenccConfig.TW2S: return "tw2s";
+                case OpenccConfig.TW2SP: return "tw2sp";
+                case OpenccConfig.TW2T: return "tw2t";
+                case OpenccConfig.TW2TP: return "tw2tp";
+                case OpenccConfig.HK2S: return "hk2s";
+                case OpenccConfig.HK2T: return "hk2t";
+                case OpenccConfig.JP2T: return "jp2t";
+                case OpenccConfig.T2JP: return "t2jp";
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(config), config, "Invalid OpenCC config");
+            }
         }
     }
 }

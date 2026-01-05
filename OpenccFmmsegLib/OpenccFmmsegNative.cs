@@ -112,5 +112,53 @@ namespace OpenccFmmsegLib
         /// </param>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void opencc_error_free(IntPtr str);
+        
+        /// <summary>
+        /// Converts input UTF-8 text using a numeric OpenCC config and punctuation option.
+        /// </summary>
+        /// <param name="opencc">Pointer to a valid native <c>OpenCC</c> instance.</param>
+        /// <param name="input">UTF-8 encoded byte array of the input string, null-terminated.</param>
+        /// <param name="config">Numeric config value (opencc_config_t).</param>
+        /// <param name="punctuation">Whether to convert punctuation marks.</param>
+        /// <returns>
+        /// Pointer to a newly allocated UTF-8 null-terminated string containing the converted text.
+        /// The caller must free this memory using <see cref="opencc_string_free"/>.
+        /// </returns>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr opencc_convert_cfg(
+            IntPtr opencc,
+            byte[] input,
+            int config,
+            [MarshalAs(UnmanagedType.I1)] bool punctuation);
+
+        /// <summary>
+        /// Converts a canonical OpenCC config name (e.g. "s2twp") to a numeric config ID.
+        /// </summary>
+        /// <param name="nameUtf8">
+        /// Null-terminated UTF-8 string containing the canonical config name.
+        /// </param>
+        /// <param name="configId">
+        /// Receives the numeric OpenCC config ID on success.
+        /// </param>
+        /// <returns>
+        /// true if the name is valid; false otherwise.
+        /// </returns>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
+        [return: MarshalAs(UnmanagedType.I1)]
+        internal static extern bool opencc_config_name_to_id(
+            byte[] nameUtf8,
+            out int configId);
+
+        /// <summary>
+        /// Converts a numeric OpenCC config ID to its canonical lowercase name.
+        /// </summary>
+        /// <param name="configId">Numeric OpenCC config ID.</param>
+        /// <returns>
+        /// Pointer to a static UTF-8 string, or IntPtr.Zero if invalid.
+        /// </returns>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr opencc_config_id_to_name(
+            int configId);
+
     }
 }

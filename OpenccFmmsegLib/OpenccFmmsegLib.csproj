@@ -15,14 +15,13 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-        <AssemblyVersion>1.2.2.0</AssemblyVersion>
-        <FileVersion>1.2.2.0</FileVersion>
-        <PackageReleaseNotes>v1.2.2
+        <AssemblyVersion>1.2.3.0</AssemblyVersion>
+        <FileVersion>1.2.3.0</FileVersion>
+        <PackageReleaseNotes>v1.2.3
             
-            - Extract native codes to its own class
-            - Fixed ABI mismatch in C# P/Invoke by using `UnmanagedType.I1` for Rust bool parameters
+            - Added new function ConvertCfg() using Config Enum
         </PackageReleaseNotes>
-        <Version>1.2.2</Version>
+        <Version>1.2.3</Version>
         <!-- Generate the XML doc file alongside the DLL -->
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <!-- (Optional) don’t warn about undocumented public members -->
