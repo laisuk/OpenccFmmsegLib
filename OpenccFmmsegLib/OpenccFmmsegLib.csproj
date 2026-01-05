@@ -15,13 +15,14 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-        <AssemblyVersion>1.2.3.0</AssemblyVersion>
-        <FileVersion>1.2.3.0</FileVersion>
-        <PackageReleaseNotes>v1.2.3
+        <AssemblyVersion>1.2.2.0</AssemblyVersion>
+        <FileVersion>1.2.2.0</FileVersion>
+        <PackageReleaseNotes>v1.2.2
             
             - Added new function ConvertCfg() using Config Enum
+            - Update opencc-fmmseg native to v0.8.4
         </PackageReleaseNotes>
-        <Version>1.2.3</Version>
+        <Version>1.2.2</Version>
         <!-- Generate the XML doc file alongside the DLL -->
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <!-- (Optional) don’t warn about undocumented public members -->
