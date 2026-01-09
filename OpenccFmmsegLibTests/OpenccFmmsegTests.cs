@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Reflection;
 using OpenccFmmsegLib;
 
 namespace OpenccFmmsegLibTests;
@@ -6,6 +7,20 @@ namespace OpenccFmmsegLibTests;
 [TestClass]
 public sealed class OpenccFmmsegTests
 {
+    // TODO: change this to the actual type that contains the internal helpers
+    // e.g. typeof(Opencc), typeof(OpenccConfigHelper), etc.
+    private static readonly Type HelperType = typeof(OpenccFmmseg);
+
+    private static MethodInfo GetInternal(string name)
+    {
+        var mi = HelperType.GetMethod(
+            name,
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.IsNotNull(mi, "Cannot find internal method: " + HelperType.FullName + "." + name);
+        return mi;
+    }
+
     private readonly OpenccFmmseg _opencc = new();
 
     [TestMethod]
@@ -32,9 +47,9 @@ public sealed class OpenccFmmsegTests
     [TestMethod]
     public void Change_Conversion_Test()
     {
-        var result = _opencc.Convert("龙马精神", "s2t");
+        var result = _opencc.Convert("龙马精神", OpenccConfig.S2T);
         Assert.AreEqual("龍馬精神", result);
-        var result1 = _opencc.Convert("龍馬精神", "t2s");
+        var result1 = _opencc.Convert("龍馬精神", OpenccConfig.T2S);
         Assert.AreEqual("龙马精神", result1);
     }
 
@@ -53,7 +68,7 @@ public sealed class OpenccFmmsegTests
     }
 
     // ----------------------------
-    // NEW TESTS: ConvertCfgCore
+    // NEW TESTS: ConvertCfg
     // ----------------------------
 
     [TestMethod]
@@ -78,27 +93,27 @@ public sealed class OpenccFmmsegTests
         Assert.AreEqual("「龍馬精神」", result);
     }
 
-    // [TestMethod]
-    // public void ConvertCfg_InvalidConfig_ReturnsErrorString_AndSetsLastError()
-    // {
-    //     // Intentionally invalid
-    //     const int invalidCfg = 999999;
-    //
-    //     var result = _opencc.ConvertCfgCore("龙马精神", invalidCfg);
-    //
-    //     // Contract: should return an allocated error string, not NULL (unless OOM/NULL inputs)
-    //     Assert.IsFalse(string.IsNullOrEmpty(result));
-    //
-    //     // Expect format: "Invalid config: <value>"
-    //     // Use Contains instead of strict equals to avoid minor wording differences.
-    //     Assert.Contains("Invalid config", result);
-    //     Assert.Contains(invalidCfg.ToString(), result);
-    //
-    //     // Also stored internally and retrievable via opencc_last_error()
-    //     var last = OpenccFmmseg.LastError();
-    //     Assert.Contains("Invalid config", last);
-    //     Assert.Contains(invalidCfg.ToString(), last);
-    // }
+    [TestMethod]
+    public void ConvertCfg_InvalidConfig_ReturnsErrorString_AndSetsLastError()
+    {
+        // Intentionally invalid
+        const int invalidCfg = 999999;
+
+        var result = _opencc.ConvertCfg("龙马精神", invalidCfg);
+
+        // Contract: should return an allocated error string, not NULL (unless OOM/NULL inputs)
+        Assert.IsFalse(string.IsNullOrEmpty(result));
+
+        // Expect format: "Invalid config: <value>"
+        // Use Contains instead of strict equals to avoid minor wording differences.
+        Assert.Contains("Invalid config", result);
+        Assert.Contains(invalidCfg.ToString(), result);
+
+        // Also stored internally and retrievable via opencc_last_error()
+        var last = OpenccFmmseg.LastError();
+        Assert.Contains("Invalid config", last);
+        Assert.Contains(invalidCfg.ToString(), last);
+    }
 
     [TestMethod]
     public void ConvertCfg_NullOrEmptyInput_ReturnsEmptyString()
@@ -135,5 +150,46 @@ public sealed class OpenccFmmsegTests
 
         Assert.AreEqual("jp2t", OpenccConfig.JP2T.ToCanonicalName());
         Assert.AreEqual("t2jp", OpenccConfig.T2JP.ToCanonicalName());
+    }
+
+    [TestClass]
+    public sealed class OpenccNativeConfigTests
+    {
+        [TestMethod]
+        public void NativeConfigNameToId_ConfigNameToIdNative_Works_And_IsCaseInsensitive()
+        {
+            var ok = OpenccFmmseg.ConfigNameToIdNative("S2TWP", out var config);
+            Assert.IsTrue(ok, "ConfigNameToIdNative should succeed for valid canonical name.");
+            Assert.AreEqual(OpenccConfig.S2TWP, config);
+
+            // whitespace / invalid
+            ok = OpenccFmmseg.ConfigNameToIdNative("   ", out config);
+            Assert.IsFalse(ok);
+
+            ok = OpenccFmmseg.ConfigNameToIdNative("not-a-config", out config);
+            Assert.IsFalse(ok);
+        }
+
+        [TestMethod]
+        public void NativeConfigIdToName_ConfigIdToNameNative_Works_And_RoundTrips()
+        {
+            // id -> name
+            var ok = OpenccFmmseg.ConfigIdToNameNative(OpenccConfig.T2HK, out var name);
+
+            Assert.IsTrue(ok, "ConfigIdToNameNative should succeed for valid configId.");
+            Assert.IsFalse(string.IsNullOrEmpty(name));
+            Assert.AreEqual("t2hk", name, "Native should return canonical lowercase name.");
+
+            // name -> id roundtrip
+            ok = OpenccFmmseg.ConfigNameToIdNative(name, out var round);
+
+            Assert.IsTrue(ok, "ConfigNameToIdNative should succeed for name returned by native.");
+            Assert.AreEqual(OpenccConfig.T2HK, round);
+
+            // invalid id (cast) should fail
+            ok = OpenccFmmseg.ConfigIdToNameNative((OpenccConfig)999999, out name);
+            Assert.IsFalse(ok, "ConfigIdToNameNative should fail for invalid enum value.");
+            Assert.AreEqual(string.Empty, name);
+        }
     }
 }

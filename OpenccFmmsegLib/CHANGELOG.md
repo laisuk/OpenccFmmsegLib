@@ -6,15 +6,19 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.2.2] - 2025-11-21
+## [1.2.2] — 2026-01-10
 
-## Changed
+### ✨ Added
+- Introduced the `OpenccConfig` enum as a strongly-typed conversion configuration.
+- Added a new numeric-ID–based conversion API: `ConvertCfg(...)`, intended for advanced and interop scenarios.
 
-- Extract native codes to its own class
+### 🔄 Changed
+- Refactored native interop code into a dedicated native wrapper class for improved separation of concerns.
+- Updated the bundled **opencc-fmmseg C API** to **v0.8.4**.
 
-### Fixed
-
-- Fixed ABI mismatch in C# P/Invoke by using `UnmanagedType.I1` for Rust bool parameters (`OpenccFmmsegLib` / `OpenccJiebaLib`).
+### 🐞 Fixed
+- Fixed a C# P/Invoke ABI mismatch by explicitly marshaling Rust `bool` parameters as `UnmanagedType.I1`
+  (affecting both **OpenccFmmsegLib** and **OpenccJiebaLib**).
 
 ---
 

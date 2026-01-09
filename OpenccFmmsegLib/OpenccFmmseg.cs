@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Buffers;
+using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
 namespace OpenccFmmsegLib
@@ -18,32 +19,25 @@ namespace OpenccFmmsegLib
         private static readonly Dictionary<string, byte[]> EncodedConfigCache =
             new Dictionary<string, byte[]>(StringComparer.Ordinal);
 
-        // Supported configuration names for OpenCC conversion
-        private static readonly HashSet<string> ConfigList = new HashSet<string>(
-            new[]
-            {
-                "s2t", "t2s", "s2tw", "tw2s", "s2twp", "tw2sp", "s2hk", "hk2s",
-                "t2tw", "t2twp", "t2hk", "tw2t", "tw2tp", "hk2t", "t2jp", "jp2t"
-            },
-            StringComparer.Ordinal);
-
         private IntPtr _openccInstance;
         private bool _disposed;
 
-        // Static constructor to pre-encode common config strings for efficient native interop
+        // Static constructor to pre-encode canonical config strings for efficient native interop.
+        // Single-owner: the set of configs comes from OpenccConfig enum.
         static OpenccFmmseg()
         {
-            foreach (var config in ConfigList)
+            foreach (OpenccConfig cfg in Enum.GetValues(typeof(OpenccConfig)))
             {
-                if (EncodedConfigCache.ContainsKey(config))
-                    continue; // Defensive: avoid ArgumentException if code is refactored later
+                var canonical = cfg.ToCanonicalName(); // always lowercase canonical
+                if (EncodedConfigCache.ContainsKey(canonical))
+                    continue; // Defensive: should never happen unless enum has duplicates
 
-                var byteCount = Encoding.UTF8.GetByteCount(config);
+                var byteCount = Encoding.UTF8.GetByteCount(canonical);
                 var encodedBytes = new byte[byteCount + 1];
-                Encoding.UTF8.GetBytes(config, 0, config.Length, encodedBytes, 0);
-                encodedBytes[byteCount] = 0x00;
+                Encoding.UTF8.GetBytes(canonical, 0, canonical.Length, encodedBytes, 0);
+                encodedBytes[byteCount] = 0x00; // NUL
 
-                EncodedConfigCache[config] = encodedBytes;
+                EncodedConfigCache[canonical] = encodedBytes;
             }
         }
 
@@ -108,17 +102,119 @@ namespace OpenccFmmsegLib
         /// <returns>The converted string, or an empty string if input is null or empty.</returns>
         public string Convert(string input, string config, bool punctuation = false)
         {
-            // Early return for null/empty input
             if (string.IsNullOrEmpty(input))
                 return string.Empty;
 
-            // Use ordinal comparison for better performance
-            if (!ConfigList.Contains(config))
-                config = "s2t";
+            ThrowIfDisposed();
+
+            // 🔹 SINGLE OWNER: parse config via managed extensions
+            if (!OpenccConfigExtensions.TryParseConfig(config, out var configId))
+            {
+                configId = OpenccConfigExtensions.DefaultConfig();
+            }
+
+            // 🔹 canonicalize once
+            var canonical = configId.ToCanonicalName();
+
+            return ConvertInternal(input, canonical, punctuation);
+        }
+
+        /// <summary>
+        /// Converts the input Chinese text using a typed OpenCC configuration.
+        /// </summary>
+        /// <param name="input">
+        /// The UTF-16 .NET input string to convert.
+        /// If <paramref name="input"/> is <c>null</c> or empty, this method returns an empty string.
+        /// </param>
+        /// <param name="configId">
+        /// The typed OpenCC configuration identifier.
+        /// </param>
+        /// <param name="punctuation">
+        /// <c>true</c> to convert punctuation as well; otherwise <c>false</c>.
+        /// </param>
+        /// <returns>
+        /// The converted string on success.
+        /// </returns>
+        /// <remarks>
+        /// <para>
+        /// This overload is the recommended entry point for most callers because it is
+        /// strongly typed, self-documenting, and avoids string-based configuration errors.
+        /// </para>
+        /// <para>
+        /// Internally, the configuration is canonicalized and forwarded to the native layer.
+        /// Native-side validation still applies.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="ObjectDisposedException">
+        /// Thrown if this instance has been disposed.
+        /// </exception>
+        public string Convert(string input, OpenccConfig configId, bool punctuation = false)
+        {
+            if (string.IsNullOrEmpty(input))
+                return string.Empty;
 
             ThrowIfDisposed();
 
-            // Compute needed size first (pure, non-allocating & won’t rent yet)
+            // Canonicalize once and forward to the core executor.
+            var canonical = configId.ToCanonicalName();
+            return ConvertInternal(input, canonical, punctuation);
+        }
+
+        /// <summary>
+        /// Core native-backed conversion routine using a canonical OpenCC configuration.
+        /// </summary>
+        /// <param name="input">
+        /// The UTF-16 .NET input string to convert.
+        /// This value must be non-null and non-empty.
+        /// </param>
+        /// <param name="canonicalConfig">
+        /// A canonical OpenCC configuration name in lowercase form
+        /// (for example, <c>"s2t"</c>, <c>"s2twp"</c>).
+        /// <para>
+        /// This value <b>must</b> already be validated and canonicalized by the caller.
+        /// No further validation is performed at this level.
+        /// </para>
+        /// </param>
+        /// <param name="punctuation">
+        /// <c>true</c> to convert punctuation as well; otherwise <c>false</c>.
+        /// </param>
+        /// <returns>
+        /// The converted string returned by the native OpenCC library.
+        /// </returns>
+        /// <remarks>
+        /// <para>
+        /// This method is an internal execution primitive and is not intended to be called
+        /// directly by library consumers.
+        /// </para>
+        /// <para>
+        /// Configuration validation and fallback logic are handled at higher layers
+        /// (for example, in <see cref="Convert(string,OpenccConfig,bool)"/> or
+        /// <see cref="Convert(string,string,bool)"/>).
+        /// </para>
+        /// <para>
+        /// Memory management:
+        /// <list type="bullet">
+        /// <item>
+        /// Input text is encoded to UTF-8 into a rented buffer and passed to the native API.
+        /// </item>
+        /// <item>
+        /// The native output string is always released via
+        /// <c>opencc_string_free</c> after decoding.
+        /// </item>
+        /// </list>
+        /// </para>
+        /// <para>
+        /// If the canonical configuration is missing from the internal cache, an
+        /// <see cref="InvalidOperationException"/> is thrown, indicating an internal
+        /// consistency error.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown if <paramref name="canonicalConfig"/> is not found in the internal
+        /// configuration cache. This indicates an internal programming error.
+        /// </exception>
+        private string ConvertInternal(string input, string canonicalConfig, bool punctuation)
+        {
             var inputByteCount = Encoding.UTF8.GetByteCount(input);
             byte[] inputBuffer = null;
 
@@ -127,16 +223,21 @@ namespace OpenccFmmsegLib
                 inputBuffer = ArrayPool<byte>.Shared.Rent(inputByteCount + 1);
 
                 var inputBytesWritten = Encoding.UTF8.GetBytes(input, 0, input.Length, inputBuffer, 0);
-                inputBuffer[inputBytesWritten] = 0x00; // Null-terminate
+                inputBuffer[inputBytesWritten] = 0x00;
 
-                // Prepare config buffer
-                if (!EncodedConfigCache.TryGetValue(config, out var configBytes))
+                // 🔹 encoded config MUST exist (canonical guaranteed)
+                if (!EncodedConfigCache.TryGetValue(canonicalConfig, out var configBytes))
                 {
-                    throw new ArgumentException($"Unsupported OpenCC config: {config}", nameof(config));
+                    // This should never happen unless internal tables are corrupted
+                    throw new InvalidOperationException(
+                        $"Internal error: canonical OpenCC config '{canonicalConfig}' not found.");
                 }
 
-                // Native call
-                var output = OpenccFmmsegNative.opencc_convert(_openccInstance, inputBuffer, configBytes, punctuation);
+                var output = OpenccFmmsegNative.opencc_convert(
+                    _openccInstance,
+                    inputBuffer,
+                    configBytes,
+                    punctuation);
 
                 try
                 {
@@ -151,28 +252,130 @@ namespace OpenccFmmsegLib
             finally
             {
                 if (inputBuffer != null)
-                {
                     ArrayPool<byte>.Shared.Return(inputBuffer);
-                }
             }
         }
 
         /// <summary>
-        /// Converts the input Chinese text using a numeric OpenCC config (opencc_config_t).
+        /// Converts the input Chinese text using a numeric OpenCC configuration ID
+        /// (<c>opencc_config_t</c>).
         /// </summary>
-        /// <param name="input">The input string to convert.</param>
-        /// <param name="config">Numeric config value (e.g. OPENCC_CONFIG_S2TWP).</param>
-        /// <param name="punctuation">Whether to convert punctuation as well.</param>
+        /// <param name="input">
+        /// The UTF-16 .NET input string to convert.
+        /// If <paramref name="input"/> is <c>null</c> or empty, this method returns an empty string.
+        /// </param>
+        /// <param name="configNum">
+        /// The numeric OpenCC configuration ID (<c>opencc_config_t</c>), for example
+        /// <c>OPENCC_CONFIG_S2TWP</c>.
+        /// </param>
+        /// <param name="punctuation">
+        /// <c>true</c> to convert punctuation as well; otherwise <c>false</c>.
+        /// </param>
         /// <returns>
-        /// The converted string. If <paramref name="config"/> is invalid, the native side returns
-        /// an allocated error message string like "Invalid config: &lt;value&gt;" (and also stores it as last error).
-        /// Returns empty string only if input is null/empty, or if native returned NULL.
+        /// The converted string on success.
         /// </returns>
-        private string ConvertCfgCore(string input, int config, bool punctuation = false)
+        /// <remarks>
+        /// <para>
+        /// This overload is an advanced API intended for interop scenarios (e.g., bindings, CLI parsing,
+        /// or cross-language integration) where the configuration is already represented as a numeric ID.
+        /// </para>
+        /// <para>
+        /// <b>Configuration validation (gating)</b><br/>
+        /// The managed layer intentionally does not validate <paramref name="configNum"/>.
+        /// Validation is performed by the native layer to ensure consistent behavior across languages.
+        /// If <paramref name="configNum"/> is invalid, the native side returns an allocated UTF-8
+        /// error message string such as <c>"Invalid config: &lt;value&gt;"</c> and also stores it as
+        /// the last error.
+        /// </para>
+        /// <para>
+        /// <b>Memory ownership</b><br/>
+        /// The returned native string is always released via <c>opencc_string_free</c> after decoding.
+        /// </para>
+        /// <para>
+        /// <b>Return value notes</b><br/>
+        /// This method returns an empty string only when <paramref name="input"/> is null/empty,
+        /// or if the native call returns <see cref="IntPtr.Zero"/> (for example, due to OOM).
+        /// In the invalid-config case, the returned string contains the native error message.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="ObjectDisposedException">
+        /// Thrown if this instance has been disposed.
+        /// </exception>
+        /// <inheritdoc cref="ConvertCfg(string,int,bool)"/>
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public string ConvertCfg(string input, int configNum, bool punctuation = false)
         {
-            if (string.IsNullOrEmpty(input))
-                return string.Empty;
+            return string.IsNullOrEmpty(input) ? string.Empty : ConvertCfgInternal(input, configNum, punctuation);
+        }
 
+        /// <summary>
+        /// Converts the input Chinese text using a typed OpenCC configuration ID
+        /// (<see cref="OpenccConfig"/>).
+        /// </summary>
+        /// <param name="input">
+        /// The UTF-16 .NET input string to convert.
+        /// If <paramref name="input"/> is <c>null</c> or empty, this method returns an empty string.
+        /// </param>
+        /// <param name="configId">
+        /// The typed OpenCC configuration identifier.
+        /// </param>
+        /// <param name="punctuation">
+        /// <c>true</c> to convert punctuation as well; otherwise <c>false</c>.
+        /// </param>
+        /// <returns>
+        /// The converted string on success.
+        /// </returns>
+        /// <remarks>
+        /// <para>
+        /// This overload is intended for advanced scenarios where the conversion configuration
+        /// is already represented as an enum ID.
+        /// </para>
+        /// <para>
+        /// Internally, this forwards to the native numeric-config API.
+        /// Native-side validation still applies for consistency with other bindings.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="ObjectDisposedException">
+        /// Thrown if this instance has been disposed.
+        /// </exception>
+        public string ConvertCfg(string input, OpenccConfig configId, bool punctuation = false)
+        {
+            return string.IsNullOrEmpty(input) ? string.Empty : ConvertCfgInternal(input, (int)configId, punctuation);
+        }
+
+        /// <summary>
+        /// Core native-backed conversion routine using a numeric OpenCC config ID
+        /// (<c>opencc_config_t</c>).
+        /// </summary>
+        /// <param name="input">
+        /// The UTF-16 .NET input string to convert. Must be non-null and non-empty.
+        /// </param>
+        /// <param name="configNum">
+        /// Numeric OpenCC configuration ID (<c>opencc_config_t</c>).
+        /// Validation is performed by the native layer.
+        /// </param>
+        /// <param name="punctuation">
+        /// <c>true</c> to convert punctuation; otherwise <c>false</c>.
+        /// </param>
+        /// <returns>
+        /// The decoded native result string. In the invalid-config case, this will be the
+        /// native error string (for example, <c>"Invalid config: &lt;value&gt;"</c>).
+        /// </returns>
+        /// <remarks>
+        /// <para>
+        /// This method is an internal execution primitive intended for advanced overloads.
+        /// It does not validate <paramref name="configNum"/> and relies on native gating to
+        /// ensure cross-language consistency.
+        /// </para>
+        /// <para>
+        /// The native output pointer is always freed via <c>opencc_string_free</c>.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="ObjectDisposedException">
+        /// Thrown if this instance has been disposed.
+        /// </exception>
+        private string ConvertCfgInternal(string input, int configNum, bool punctuation)
+        {
             ThrowIfDisposed();
 
             var inputByteCount = Encoding.UTF8.GetByteCount(input);
@@ -185,11 +388,11 @@ namespace OpenccFmmsegLib
                 var written = Encoding.UTF8.GetBytes(input, 0, input.Length, inputBuffer, 0);
                 inputBuffer[written] = 0x00; // NUL
 
-                var output = OpenccFmmsegNative.opencc_convert_cfg(_openccInstance, inputBuffer, config, punctuation);
+                var output =
+                    OpenccFmmsegNative.opencc_convert_cfg(_openccInstance, inputBuffer, configNum, punctuation);
 
                 try
                 {
-                    // NOTE: native contract says invalid config may still return an allocated error message string.
                     return Utf8BytesToString(output);
                 }
                 finally
@@ -203,14 +406,6 @@ namespace OpenccFmmsegLib
                 if (inputBuffer != null)
                     ArrayPool<byte>.Shared.Return(inputBuffer);
             }
-        }
-
-        /// <summary>
-        /// Converts the input Chinese text using a numeric OpenCC config (typed enum).
-        /// </summary>
-        public string ConvertCfg(string input, OpenccConfig config, bool punctuation = false)
-        {
-            return ConvertCfgCore(input, (int)config, punctuation);
         }
 
         /// <summary>
@@ -266,11 +461,36 @@ namespace OpenccFmmsegLib
             }
         }
 
-        internal static bool TryParseConfig(
-            string name,
-            out OpenccConfig config)
+        /// <summary>
+        /// Attempts to map a canonical OpenCC config name to a typed <see cref="OpenccConfig"/>
+        /// using the native C API (<c>opencc_config_name_to_id</c>).
+        /// </summary>
+        /// <param name="name">
+        /// Canonical configuration name (for example, <c>"s2t"</c>, <c>"s2twp"</c>, <c>"t2hk"</c>).
+        /// Case-insensitive and culture-invariant.
+        /// </param>
+        /// <param name="configId">
+        /// When this method returns <c>true</c>, contains the parsed <see cref="OpenccConfig"/> value;
+        /// otherwise set to <c>default</c>.
+        /// </param>
+        /// <returns>
+        /// <c>true</c> if the name is recognized by the native library; otherwise <c>false</c>.
+        /// </returns>
+        /// <remarks>
+        /// <para>
+        /// This is a thin wrapper over the native C API and exists for advanced interop/debugging scenarios.
+        /// </para>
+        /// <para>
+        /// Prefer <see cref="OpenccConfigExtensions.FromStr"/> / <see cref="OpenccConfigExtensions.IsSupportedConfig"/>
+        /// for typical managed usage.
+        /// </para>
+        /// <para>
+        /// This method does not set the OpenCC last-error state.
+        /// </para>
+        /// </remarks>
+        public static bool ConfigNameToIdNative(string name, out OpenccConfig configId)
         {
-            config = default;
+            configId = default;
 
             if (string.IsNullOrWhiteSpace(name))
                 return false;
@@ -281,13 +501,36 @@ namespace OpenccFmmsegLib
             if (!OpenccFmmsegNative.opencc_config_name_to_id(bytes, out var id))
                 return false;
 
-            config = (OpenccConfig)id;
+            configId = (OpenccConfig)id;
             return true;
         }
 
-        internal static bool TryGetConfigName(OpenccConfig config, out string name)
+        /// <summary>
+        /// Attempts to map a typed <see cref="OpenccConfig"/> value to its canonical lowercase name
+        /// using the native C API (<c>opencc_config_id_to_name</c>).
+        /// </summary>
+        /// <param name="configId">The OpenCC configuration identifier.</param>
+        /// <param name="name">
+        /// When this method returns <c>true</c>, contains the canonical lowercase name
+        /// (for example, <c>"s2t"</c> or <c>"t2hk"</c>); otherwise set to an empty string.
+        /// </param>
+        /// <returns>
+        /// <c>true</c> if <paramref name="configId"/> is recognized by the native library; otherwise <c>false</c>.
+        /// </returns>
+        /// <remarks>
+        /// <para>
+        /// This is a thin wrapper over the native C API and exists for advanced interop/debugging scenarios.
+        /// </para>
+        /// <para>
+        /// Prefer <see cref="OpenccConfigExtensions.ToCanonicalName"/> for typical managed usage.
+        /// </para>
+        /// <para>
+        /// This method does not set the OpenCC last-error state.
+        /// </para>
+        /// </remarks>
+        public static bool ConfigIdToNameNative(OpenccConfig configId, out string name)
         {
-            var ptr = OpenccFmmsegNative.opencc_config_id_to_name((int)config);
+            var ptr = OpenccFmmsegNative.opencc_config_id_to_name((int)configId);
             if (ptr == IntPtr.Zero)
             {
                 name = string.Empty;
@@ -345,133 +588,6 @@ namespace OpenccFmmsegLib
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(OpenccFmmseg), "The OpenCC instance has been disposed.");
-        }
-    }
-
-    // ReSharper disable InconsistentNaming
-    // ReSharper disable IdentifierTypo
-
-    /// <summary>
-    /// Numeric OpenCC configuration identifiers (opencc_config_t).
-    /// These values must match the native enum exactly.
-    /// </summary>
-    // NOTE:
-    // Enum member names intentionally follow OpenCC canonical identifiers
-    // (S2TW, T2HK, etc.) to preserve cross-language consistency.
-    // Do NOT rename to satisfy C# naming rules.
-    public enum OpenccConfig
-    {
-        /// <summary>Simplified Chinese → Traditional Chinese</summary>
-        S2T = 1,
-
-        /// <summary>Simplified → Traditional (Taiwan)</summary>
-        S2TW = 2,
-
-        /// <summary>Simplified → Traditional (Taiwan, with phrases)</summary>
-        S2TWP = 3,
-
-        /// <summary>Simplified → Traditional (Hong Kong)</summary>
-        S2HK = 4,
-
-        /// <summary>Traditional Chinese → Simplified Chinese</summary>
-        T2S = 5,
-
-        /// <summary>Traditional → Taiwan Traditional</summary>
-        T2TW = 6,
-
-        /// <summary>Traditional → Taiwan Traditional (with phrases)</summary>
-        T2TWP = 7,
-
-        /// <summary>Traditional → Hong Kong Traditional</summary>
-        T2HK = 8,
-
-        /// <summary>Taiwan Traditional → Simplified</summary>
-        TW2S = 9,
-
-        /// <summary>Taiwan Traditional → Simplified (variant)</summary>
-        TW2SP = 10,
-
-        /// <summary>Taiwan Traditional → Traditional</summary>
-        TW2T = 11,
-
-        /// <summary>Taiwan Traditional → Traditional (variant)</summary>
-        TW2TP = 12,
-
-        /// <summary>Hong Kong Traditional → Simplified</summary>
-        HK2S = 13,
-
-        /// <summary>Hong Kong Traditional → Traditional</summary>
-        HK2T = 14,
-
-        /// <summary>Japanese Kanji variants → Traditional Chinese</summary>
-        JP2T = 15,
-
-        /// <summary>Traditional Chinese → Japanese Kanji variants</summary>
-        T2JP = 16
-    }
-
-    // ReSharper restore IdentifierTypo
-    // ReSharper restore InconsistentNaming
-
-    /// <summary>
-    /// Extension helpers for <see cref="OpenccConfig"/>.
-    /// </summary>
-    /// <remarks>
-    /// This class provides utility methods that operate on <see cref="OpenccConfig"/>
-    /// without exposing numeric configuration IDs or native OpenCC details.
-    /// </remarks>
-    public static class OpenccConfigExtensions
-    {
-        /// <summary>
-        /// Converts an <see cref="OpenccConfig"/> value to its canonical OpenCC
-        /// configuration name.
-        /// </summary>
-        /// <param name="config">
-        /// The OpenCC configuration enum value.
-        /// </param>
-        /// <returns>
-        /// A lowercase canonical configuration name
-        /// (for example, <c>"s2t"</c>, <c>"s2twp"</c>, <c>"t2hk"</c>),
-        /// suitable for logging, display, file naming, or interoperability
-        /// with OpenCC-compatible tools.
-        /// </returns>
-        /// <remarks>
-        /// <para>
-        /// The returned string follows the official OpenCC canonical naming
-        /// convention and is independent of the enum member name casing.
-        /// </para>
-        /// <para>
-        /// This method does not perform any allocation beyond returning the
-        /// constant string literal and does not invoke native code.
-        /// </para>
-        /// </remarks>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Thrown if <paramref name="config"/> is not a valid <see cref="OpenccConfig"/> value.
-        /// </exception>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string ToCanonicalName(this OpenccConfig config)
-        {
-            switch (config)
-            {
-                case OpenccConfig.S2T: return "s2t";
-                case OpenccConfig.S2TW: return "s2tw";
-                case OpenccConfig.S2TWP: return "s2twp";
-                case OpenccConfig.S2HK: return "s2hk";
-                case OpenccConfig.T2S: return "t2s";
-                case OpenccConfig.T2TW: return "t2tw";
-                case OpenccConfig.T2TWP: return "t2twp";
-                case OpenccConfig.T2HK: return "t2hk";
-                case OpenccConfig.TW2S: return "tw2s";
-                case OpenccConfig.TW2SP: return "tw2sp";
-                case OpenccConfig.TW2T: return "tw2t";
-                case OpenccConfig.TW2TP: return "tw2tp";
-                case OpenccConfig.HK2S: return "hk2s";
-                case OpenccConfig.HK2T: return "hk2t";
-                case OpenccConfig.JP2T: return "jp2t";
-                case OpenccConfig.T2JP: return "t2jp";
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(config), config, "Invalid OpenCC config");
-            }
         }
     }
 }

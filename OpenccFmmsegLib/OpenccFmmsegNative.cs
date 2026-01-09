@@ -112,7 +112,7 @@ namespace OpenccFmmsegLib
         /// </param>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void opencc_error_free(IntPtr str);
-        
+
         /// <summary>
         /// Converts input UTF-8 text using a numeric OpenCC config and punctuation option.
         /// </summary>
@@ -159,6 +159,5 @@ namespace OpenccFmmsegLib
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr opencc_config_id_to_name(
             int configId);
-
     }
 }
