@@ -123,7 +123,8 @@ namespace OpenccFmmsegLib
         /// <see cref="OpenccConfig"/> value; otherwise set to <c>default</c>.
         /// </param>
         /// <returns>
-        /// <c>true</c> if <paramref name="name"/> is a supported OpenCC configuration name;
+        /// <c>true</c>
+        /// if <paramref name="name"/> is a supported OpenCC configuration name;
         /// otherwise <c>false</c>.
         /// </returns>
         /// <remarks>
