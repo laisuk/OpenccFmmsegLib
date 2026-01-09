@@ -7,7 +7,7 @@ namespace OpenccFmmsegLibTests;
 [TestClass]
 public sealed class OpenccFmmsegTests
 {
-    // TODO: change this to the actual type that contains the internal helpers
+    // DONE: change this to the actual type that contains the internal helpers
     // e.g. typeof(Opencc), typeof(OpenccConfigHelper), etc.
     private static readonly Type HelperType = typeof(OpenccFmmseg);
 
