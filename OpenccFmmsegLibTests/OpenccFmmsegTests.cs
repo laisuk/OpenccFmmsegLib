@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics;
-using System.Reflection;
+// using System.Reflection;
 using OpenccFmmsegLib;
 
 namespace OpenccFmmsegLibTests;
@@ -7,8 +7,7 @@ namespace OpenccFmmsegLibTests;
 [TestClass]
 public sealed class OpenccFmmsegTests
 {
-    // DONE: change this to the actual type that contains the internal helpers
-    // e.g. typeof(Opencc), typeof(OpenccConfigHelper), etc.
+    /*
     private static readonly Type HelperType = typeof(OpenccFmmseg);
 
     private static MethodInfo GetInternal(string name)
@@ -20,6 +19,7 @@ public sealed class OpenccFmmsegTests
         Assert.IsNotNull(mi, "Cannot find internal method: " + HelperType.FullName + "." + name);
         return mi;
     }
+    */
 
     private readonly OpenccFmmseg _opencc = new();
 
@@ -93,6 +93,11 @@ public sealed class OpenccFmmsegTests
         Assert.AreEqual("「龍馬精神」", result);
     }
 
+    // NOTE:
+    // opencc_last_error() reflects process-wide shared state.
+    // Under parallel test execution, another test may overwrite the last error
+    // between ConvertCfg(...) and LastError(), causing rare, non-deterministic failures.
+    // This is expected behavior and not a correctness issue.
     [TestMethod]
     public void ConvertCfg_InvalidConfig_ReturnsErrorString_AndSetsLastError()
     {
