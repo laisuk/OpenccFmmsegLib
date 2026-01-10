@@ -30,6 +30,43 @@ namespace OpenccFmmsegLib
         private const string DllPath = "opencc_fmmseg_capi";
 
         /// <summary>
+        /// Gets the OpenCC-FMMSEG C API ABI version number.
+        /// </summary>
+        /// <remarks>
+        /// This value is intended for <b>runtime binary compatibility checks</b>.
+        /// It changes <b>only</b> when the native C ABI is broken (for example,
+        /// when function signatures or calling conventions change).
+        ///
+        /// <para>
+        /// Managed bindings (P/Invoke, JNI, ctypes, etc.) should verify this value
+        /// before invoking other native functions.
+        /// </para>
+        /// </remarks>
+        /// <returns>
+        /// A monotonically increasing ABI version number.
+        /// </returns>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint opencc_abi_number();
+
+        /// <summary>
+        /// Gets the OpenCC-FMMSEG native library version string.
+        /// </summary>
+        /// <remarks>
+        /// The returned string is a UTF-8, null-terminated version identifier
+        /// (for example, <c>"0.8.4"</c>).
+        ///
+        /// <para>
+        /// The returned pointer is owned by the native library and remains valid
+        /// for the lifetime of the process. Callers must not free it.
+        /// </para>
+        /// </remarks>
+        /// <returns>
+        /// A pointer to a UTF-8 encoded, null-terminated version string.
+        /// </returns>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr opencc_version_string();
+        
+        /// <summary>
         /// Creates a new <c>OpenCC</c> instance in unmanaged memory.
         /// </summary>
         /// <returns>
