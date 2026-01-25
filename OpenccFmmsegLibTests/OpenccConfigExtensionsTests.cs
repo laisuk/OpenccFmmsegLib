@@ -79,17 +79,17 @@ namespace OpenccFmmsegLibTests
             Assert.AreEqual(string.Empty, name);
         }
 
-        // --- FromStr / IsSupportedConfig / ToCanonicalName ---
+        // --- Parse / IsValidConfig / ToCanonicalName ---
 
         [TestMethod]
         public void FromStr_ParsesValidNames_CaseInsensitive()
         {
-            Assert.AreEqual(OpenccConfig.S2T, OpenccConfigExtensions.FromStr("s2t"));
-            Assert.AreEqual(OpenccConfig.S2TWP, OpenccConfigExtensions.FromStr("S2TWP"));
-            Assert.AreEqual(OpenccConfig.T2HK, OpenccConfigExtensions.FromStr("t2hk"));
-            Assert.AreEqual(OpenccConfig.T2HK, OpenccConfigExtensions.FromStr("T2HK"));
-            Assert.AreEqual(OpenccConfig.TW2SP, OpenccConfigExtensions.FromStr("Tw2Sp"));
-            Assert.AreEqual(OpenccConfig.JP2T, OpenccConfigExtensions.FromStr("JP2T"));
+            Assert.AreEqual(OpenccConfig.S2T, OpenccConfigExtensions.Parse("s2t"));
+            Assert.AreEqual(OpenccConfig.S2TWP, OpenccConfigExtensions.Parse("S2TWP"));
+            Assert.AreEqual(OpenccConfig.T2HK, OpenccConfigExtensions.Parse("t2hk"));
+            Assert.AreEqual(OpenccConfig.T2HK, OpenccConfigExtensions.Parse("T2HK"));
+            Assert.AreEqual(OpenccConfig.TW2SP, OpenccConfigExtensions.Parse("Tw2Sp"));
+            Assert.AreEqual(OpenccConfig.JP2T, OpenccConfigExtensions.Parse("JP2T"));
         }
 
         [TestMethod]
@@ -97,7 +97,7 @@ namespace OpenccFmmsegLibTests
         {
             try
             {
-                OpenccConfigExtensions.FromStr("not-a-config");
+                OpenccConfigExtensions.Parse("not-a-config");
                 Assert.Fail("Expected ArgumentException for invalid config name.");
             }
             catch (ArgumentException)
@@ -111,7 +111,7 @@ namespace OpenccFmmsegLibTests
         {
             try
             {
-                OpenccConfigExtensions.FromStr(null);
+                OpenccConfigExtensions.Parse(null);
                 Assert.Fail("Expected ArgumentNullException for null name.");
             }
             catch (ArgumentNullException)
@@ -123,16 +123,16 @@ namespace OpenccFmmsegLibTests
         [TestMethod]
         public void IsSupportedConfig_Works_ForValidAndInvalid()
         {
-            Assert.IsTrue(OpenccConfigExtensions.IsSupportedConfig("s2t"));
-            Assert.IsTrue(OpenccConfigExtensions.IsSupportedConfig("S2TWP"));
-            Assert.IsTrue(OpenccConfigExtensions.IsSupportedConfig("t2hk"));
-            Assert.IsTrue(OpenccConfigExtensions.IsSupportedConfig("TW2TP"));
+            Assert.IsTrue(OpenccConfigExtensions.IsValidConfig("s2t"));
+            Assert.IsTrue(OpenccConfigExtensions.IsValidConfig("S2TWP"));
+            Assert.IsTrue(OpenccConfigExtensions.IsValidConfig("t2hk"));
+            Assert.IsTrue(OpenccConfigExtensions.IsValidConfig("TW2TP"));
 
-            Assert.IsFalse(OpenccConfigExtensions.IsSupportedConfig(null));
-            Assert.IsFalse(OpenccConfigExtensions.IsSupportedConfig(string.Empty));
-            Assert.IsFalse(OpenccConfigExtensions.IsSupportedConfig("   "));
-            Assert.IsFalse(OpenccConfigExtensions.IsSupportedConfig("not-a-config"));
-            Assert.IsFalse(OpenccConfigExtensions.IsSupportedConfig("s2twp ")); // strict (no trim)
+            Assert.IsFalse(OpenccConfigExtensions.IsValidConfig(null));
+            Assert.IsFalse(OpenccConfigExtensions.IsValidConfig(string.Empty));
+            Assert.IsFalse(OpenccConfigExtensions.IsValidConfig("   "));
+            Assert.IsFalse(OpenccConfigExtensions.IsValidConfig("not-a-config"));
+            Assert.IsFalse(OpenccConfigExtensions.IsValidConfig("s2twp ")); // strict (no trim)
         }
 
         [TestMethod]

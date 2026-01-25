@@ -7,20 +7,6 @@ namespace OpenccFmmsegLibTests;
 [TestClass]
 public sealed class OpenccFmmsegTests
 {
-    /*
-    private static readonly Type HelperType = typeof(OpenccFmmseg);
-
-    private static MethodInfo GetInternal(string name)
-    {
-        var mi = HelperType.GetMethod(
-            name,
-            BindingFlags.NonPublic | BindingFlags.Static);
-
-        Assert.IsNotNull(mi, "Cannot find internal method: " + HelperType.FullName + "." + name);
-        return mi;
-    }
-    */
-
     private readonly OpenccFmmseg _opencc = new();
 
     [TestMethod]
@@ -195,6 +181,28 @@ public sealed class OpenccFmmsegTests
             ok = OpenccFmmseg.ConfigIdToNameNative((OpenccConfig)999999, out name);
             Assert.IsFalse(ok, "ConfigIdToNameNative should fail for invalid enum value.");
             Assert.AreEqual(string.Empty, name);
+        }
+
+        [TestMethod]
+        public void AbiNoAndVersionStringTest()
+        {
+            var abiNum = OpenccFmmseg.GetNativeAbiNumber();
+            var abiVersion = OpenccFmmseg.GetNativeVersion();
+
+            Assert.AreEqual(1, abiNum, "AbiNum should be 1.");
+
+            Assert.IsFalse(string.IsNullOrWhiteSpace(abiVersion), "Version string should not be empty.");
+
+            var parts = abiVersion.Split('.');
+            Assert.HasCount(3, parts, "Version should have format x.y.z.");
+
+            foreach (var part in parts)
+            {
+                Assert.IsTrue(
+                    int.TryParse(part, out var value) && value >= 0,
+                    $"Version component '{part}' must be a non-negative integer."
+                );
+            }
         }
     }
 }

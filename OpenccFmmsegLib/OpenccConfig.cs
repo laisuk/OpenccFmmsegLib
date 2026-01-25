@@ -337,7 +337,7 @@ namespace OpenccFmmsegLib
         /// Thrown if <paramref name="name"/> is not a supported OpenCC configuration.
         /// </exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static OpenccConfig FromStr(string name)
+        public static OpenccConfig Parse(string name)
         {
             if (name == null)
                 throw new ArgumentNullException(nameof(name));
@@ -364,7 +364,7 @@ namespace OpenccFmmsegLib
         /// This method never throws and performs no allocations.
         /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsSupportedConfig(string name)
+        public static bool IsValidConfig(string name)
         {
             return TryParseConfig(name, out _);
         }
