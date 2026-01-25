@@ -122,7 +122,7 @@ namespace OpenccFmmsegLib
         /// <returns>
         /// A semantic version string (<c>x.y.z</c>) reported by the native library.
         /// </returns>
-        public static string GetNativeVersion()
+        public static string GetNativeVersionString()
         {
             return Utf8BytesToString(OpenccFmmsegNative.opencc_version_string());
         }

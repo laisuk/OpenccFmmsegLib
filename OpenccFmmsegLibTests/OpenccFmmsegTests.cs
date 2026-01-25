@@ -187,7 +187,7 @@ public sealed class OpenccFmmsegTests
         public void AbiNoAndVersionStringTest()
         {
             var abiNum = OpenccFmmseg.GetNativeAbiNumber();
-            var abiVersion = OpenccFmmseg.GetNativeVersion();
+            var abiVersion = OpenccFmmseg.GetNativeVersionString();
 
             Assert.AreEqual(1, abiNum, "AbiNum should be 1.");
 
