@@ -17,7 +17,7 @@ namespace OpenccFmmsegLib
     {
         // Pre-encoded config bytes for common configurations
         private static readonly Dictionary<string, byte[]> EncodedConfigCache =
-            new Dictionary<string, byte[]>(StringComparer.Ordinal);
+            new Dictionary<string, byte[]>(capacity: 16, comparer: StringComparer.Ordinal);
 
         private IntPtr _openccInstance;
         private bool _disposed;
