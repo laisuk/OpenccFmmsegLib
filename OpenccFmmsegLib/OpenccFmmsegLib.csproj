@@ -18,9 +18,10 @@
         <AssemblyVersion>1.2.2.0</AssemblyVersion>
         <FileVersion>1.2.2.0</FileVersion>
         <PackageReleaseNotes>v1.2.2
-            
+
+            - Introduced the OpenccConfig enum as a strongly-typed conversion configuration.
             - Added new function ConvertCfg() using Config Enum
-            - Update opencc-fmmseg native to v0.8.4
+            - Update opencc-fmmseg native to v0.8.5
         </PackageReleaseNotes>
         <Version>1.2.2</Version>
         <!-- Generate the XML doc file alongside the DLL -->
@@ -46,6 +47,9 @@
         <None Include="runtimes\osx-arm64\native\libopencc_fmmseg_capi.dylib"
               Pack="true"
               PackagePath="runtimes/osx-arm64/native/" />
+        <None Include="runtimes\osx-x64\native\libopencc_fmmseg_capi.dylib"
+              Pack="true"
+              PackagePath="runtimes/osx-x64/native/" />
     </ItemGroup>
 
     <ItemGroup>

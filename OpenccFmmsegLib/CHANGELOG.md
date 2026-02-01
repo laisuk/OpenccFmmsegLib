@@ -6,7 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.2.2] — 2026-01-10
+## [1.2.2] — 2026-01-31
 
 ### ✨ Added
 - Introduced the `OpenccConfig` enum as a strongly-typed conversion configuration.
@@ -14,7 +14,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### 🔄 Changed
 - Refactored native interop code into a dedicated native wrapper class for improved separation of concerns.
-- Updated the bundled **opencc-fmmseg C API** to **v0.8.4**.
+- Updated the bundled **opencc-fmmseg C API** to **v0.8.5**.
 
 ### 🐞 Fixed
 - Fixed a C# P/Invoke ABI mismatch by explicitly marshaling Rust `bool` parameters as `UnmanagedType.I1`
