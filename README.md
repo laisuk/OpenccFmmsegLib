@@ -1,41 +1,33 @@
 # OpenccFmmsegLib
 
 [![NuGet](https://img.shields.io/nuget/v/OpenccFmmsegLib.svg)](https://www.nuget.org/packages/OpenccFmmsegLib/)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/OpenccFmmsegLib.svg?label=downloads&color=blue)](https://www.nuget.org/packages/OpenccFmmsegLib/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/OpenccFmmsegLib.svg?label=downloads\&color=blue)](https://www.nuget.org/packages/OpenccFmmsegLib/)
 [![License](https://img.shields.io/github/license/laisuk/OpenccFmmsegLib.svg)](https://github.com/laisuk/OpenccFmmsegLib/blob/master/LICENSE)
 
-A .NET class library providing a managed wrapper for the [OpenCC](https://github.com/BYVoid/OpenCC) +
-high-performance [opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg) Rust C API, enabling Chinese text conversion (
-Simplified/Traditional) in C# applications.
+A .NET Standard 2.0 library providing a managed C# wrapper for the Rust-based
+[opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg) C API (OpenCC-compatible),
+enabling high-performance Chinese text conversion (Simplified / Traditional)
+in .NET applications.
+
+This library focuses **only on OpenCC-style conversion**.
+For Jieba segmentation and keyword extraction, use **OpenccJiebaLib** instead.
+
+---
 
 ## Features
 
-- Convert Chinese text between Simplified, Traditional, and other variants using OpenCC.
-- Optional punctuation conversion.
-- Efficient buffer management for high performance.
-- Check if a string is Chinese (zh-Hans / zh-Hant) using OpenCC’s language check.
-- Safe resource management and error reporting.
+* OpenCC-compatible Chinese text conversion (Simplified / Traditional variants)
+* Optional punctuation conversion
+* Fast FMM-based segmentation engine under the hood (native Rust)
+* Lightweight API with no hidden global state
+* Safe native resource management via `IDisposable`
+
+---
 
 ## Supported Conversion Configurations
 
-| Config | Description                                     |
-|--------|-------------------------------------------------|
-| s2t    | Simplified → Traditional                        |
-| t2s    | Traditional → Simplified                        |
-| s2tw   | Simplified → Traditional (Taiwan)               |
-| tw2s   | Traditional (Taiwan) → Simplified               |
-| s2twp  | Simplified → Traditional (Taiwan, idioms)       |
-| tw2sp  | Traditional (Taiwan, idioms) → Simplified       |
-| s2hk   | Simplified → Traditional (Hong Kong)            |
-| hk2s   | Traditional (Hong Kong) → Simplified            |
-| t2tw   | Traditional → Traditional (Taiwan)              |
-| tw2t   | Traditional (Taiwan) → Traditional              |
-| t2twp  | Traditional → Traditional (Taiwan, idioms)      |
-| tw2tp  | Traditional (Taiwan, idioms) → Traditional      |
-| t2hk   | Traditional → Traditional (Hong Kong)           |
-| hk2t   | Traditional (Hong Kong) → Traditional           |
-| t2jp   | Traditional Kyujitai → Japanese Kanji Shinjitai |
-| jp2t   | Japanese Kanji Shinjitai → Traditional Kyujitai |
+`s2t`, `t2s`, `s2tw`, `tw2s`, `s2twp`, `tw2sp`, `s2hk`, `hk2s`,
+`t2tw`, `t2twp`, `t2hk`, `tw2t`, `tw2tp`, `hk2t`, `t2jp`, `jp2t`
 
 ---
 
@@ -43,60 +35,61 @@ Simplified/Traditional) in C# applications.
 
 ### Prerequisites
 
-- .NET Standard 2.0 or higher (.NET Framework, .NET Core/5+/6+, Mono, Xamarin).
-- .NET 6.0 or later recommended.
-- Native **`opencc_fmmseg_capi`** library (must be available to the runtime).
+* .NET Standard 2.0 or higher
+  (.NET Framework, .NET Core / 5+ / 6+, Mono, Xamarin, etc.)
+* .NET 6.0 or later recommended
+* Native **`opencc_fmmseg_capi`** library available at runtime
 
-### Installation
+---
 
-#### Option 1 — As Project Reference
+## Installation
 
-- Add a project reference to **OpenccFmmsegLib** in your solution.
-- **Manually copy** the native binary to your app’s output directory (`bin/<Config>/<TFM>`):
-    - Windows: `opencc_fmmseg_capi.dll`
-    - Linux: `libopencc_fmmseg_capi.so`
-    - macOS: `libopencc_fmmseg_capi.dylib`
-- Alternative: mark the native file **Copy to Output Directory: Copy always/if newer**.
+### Option 1 — From NuGet (recommended)
 
-> 🧪 **Unit tests (MSTest/xUnit/nUnit)**  
-> Test projects don’t automatically copy natives from referenced projects. Either:
-> - Put natives in the test project and set **Copy to Output Directory**, or
-> - Add a small `Target` to copy them after build:
-
-```xml
-
-<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
-    </PropertyGroup>
-    <ItemGroup>
-        <!-- Place natives under ./natives/<RID>/ -->
-        <None Include="natives\**\*.*">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </None>
-    </ItemGroup>
-    <Target Name="CopyNatives" AfterTargets="Build">
-        <ItemGroup>
-            <NativeFiles Include="natives\**\*.dll;natives\**\*.so;natives\**\*.dylib"/>
-        </ItemGroup>
-        <Copy SourceFiles="@(NativeFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true"/>
-    </Target>
-    <ItemGroup>
-        <ProjectReference Include="..\OpenccFmmsegLib\OpenccFmmsegLib.csproj"/>
-    </ItemGroup>
-</Project>       
+```sh
+dotnet add package OpenccFmmsegLib
 ```
 
-#### Option 2 — From NuGet
+The NuGet package includes prebuilt native runtimes and deploys them under:
 
-- Install via NuGet:
-  ```sh
-  dotnet add package OpenccFmmsegLib
-  ```
-- The package contains platform-specific native runtimes and **automatically** deploys them to the output directory. *
-  *No manual copy required.**
+```
+runtimes/<RID>/native/
+```
 
-### Usage
+**Shipped RIDs:**
+
+* `win-x64`
+* `linux-x64`
+* `osx-x64`
+* `osx-arm64`
+
+No manual copying is required when using NuGet.
+
+---
+
+### Option 2 — Project Reference / Custom Native Builds
+
+If you use a project reference or a custom native build, place the native
+library using the same layout as NuGet:
+
+```
+runtimes/<RID>/native/
+```
+
+Expected filenames:
+
+* Windows: `opencc_fmmseg_capi.dll`
+* Linux: `libopencc_fmmseg_capi.so`
+* macOS: `libopencc_fmmseg_capi.dylib`
+
+The built-in native loader will discover the library automatically.
+
+> 🧪 **Unit test projects** must also have access to the native library.
+> Use the same layout under the test project output directory.
+
+---
+
+## Usage
 
 ```csharp
 using OpenccFmmsegLib;
@@ -104,103 +97,89 @@ using OpenccFmmsegLib;
 using var opencc = new OpenccFmmseg();
 
 string input = "汉字转换测试";
-string result = opencc.Convert(input, "s2t"); // Simplified → Traditional
+string result = opencc.Convert(input, "s2t");
+
 Console.WriteLine(result); // 漢字轉換測試
 
-int isChinese = opencc.ZhoCheck(input); // Language check
-Console.WriteLine(isChinese); // 2
+int code = opencc.ZhoCheck(input);
+Console.WriteLine(code); // 2 (Simplified Chinese)
 ```
 
-### Error Handling
+---
 
-If initialization fails or a native error occurs, an `InvalidOperationException` is thrown.  
-Use `OpenccFmmseg.LastError()` to retrieve the last error message from the native library.
+## Error Handling
 
-## API Reference
+* `InvalidOperationException` is thrown if initialization fails or a native error occurs
+* `OpenccFmmseg.LastError()` returns the last native error message
 
-### `OpenccFmmseg` Class
+---
 
-- `string Convert(string input, string config, bool punctuation = false)`  
-  Converts Chinese text using the specified configuration.
-- `int ZhoCheck(string input)`  
-  Checks if the input is Chinese text.
-- `static string LastError()`  
-  Gets the last error message from the native library.
-- Implements `IDisposable` for safe resource cleanup.
+## Public API Overview
+
+### `OpenccFmmseg`
+
+* `string Convert(string input, string config, bool punctuation = false)`
+  Converts Chinese text using the specified OpenCC configuration.
+
+* `int ZhoCheck(string input)`
+  Detects whether the input text is Simplified Chinese, Traditional Chinese, or non-Chinese.
+
+* `static string LastError()`
+  Returns the last error message reported by the native library.
+
+* Implements `IDisposable` for deterministic native resource cleanup.
+
+---
 
 ## Troubleshooting
 
-### 1) `DllNotFoundException` or `Unable to load shared library 'opencc_fmmseg_capi'`
+### `DllNotFoundException` / `Unable to load shared library 'opencc_fmmseg_capi'`
 
-- **Cause:** Native library not found at runtime.
-- **Fix:**
-    - If using **Project Reference**: ensure the correct native file is present in your app’s output folder (`bin/...`).
-      See *Installation → Option 1*.
-    - If using **NuGet**: confirm your project targets a supported RID/TFM; clean + rebuild. The package should copy
-      natives automatically.
-    - Verify the file name and extension for your OS (see table below).
+* Ensure the native file exists under:
 
-| OS      | Expected File Name            | Note                                               |
-|---------|-------------------------------|----------------------------------------------------|
-| Windows | `opencc_fmmseg_capi.dll`      | Must match app bitness (x64 vs x86).               |
-| Linux   | `libopencc_fmmseg_capi.so`    | Ensure executable has permission to read the file. |
-| macOS   | `libopencc_fmmseg_capi.dylib` | See Gatekeeper/quarantine notes below.             |
-
-### 2) `BadImageFormatException`
-
-- **Cause:** Architecture mismatch (e.g., x64 app loading x86 native).
-- **Fix:** Match architectures. Build your app and native for the same target (typically **x64**).
-
-### 3) Works on dev machine, fails on CI/other PC
-
-- **Project Reference:** you likely forgot to ship the native file. Include it next to your `.exe`/`.dll`, or add a *
-  *copy step** (see MSTest snippet above).
-- **NuGet:** ensure the **Runtime Identifier (RID)** is set when publishing self-contained:
-  ```sh
-  dotnet publish -c Release -r win-x64 --self-contained false
   ```
-  (RID examples: `win-x64`, `linux-x64`, `osx-x64`, `osx-arm64`.)
+  runtimes/<RID>/native/
+  ```
+* Clean and rebuild the project after installing via NuGet
+* Verify the correct file name for your platform
 
-### 4) Linux cannot find the library even though it’s in the folder
+### `BadImageFormatException`
 
-- **Cause:** Loader search path.
-- **Fix options:**
-    - Place the `.so` **next to the app**.
-    - Or set `LD_LIBRARY_PATH` to include the directory:
-      ```bash
-      export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)
-      ```
-    - Or use an *rpath* when publishing/packaging (advanced).
+* Architecture mismatch (x64 vs x86)
+* Ensure your application and native library target the same architecture
 
-### 5) macOS “cannot be opened because the developer cannot be verified”
+### Linux: library exists but cannot be loaded
 
-- **Cause:** Gatekeeper quarantine on downloaded binaries.
-- **Fix:** Remove quarantine flag or codesign (for distribution):
+* Place the `.so` next to the executable **or** set:
+
   ```bash
-  xattr -dr com.apple.quarantine libopencc_fmmseg_capi.dylib
+  export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)
   ```
-  Ensure the `.dylib` sits **next to** your app if not using NuGet.
 
-### 6) `EntryPointNotFoundException`
+### macOS: Gatekeeper / quarantine issues
 
-- **Cause:** Version mismatch between managed P/Invoke signatures and the native binary.
-- **Fix:** Make sure the native DLL and the managed library are from the **same release**.
+```bash
+xattr -dr com.apple.quarantine libopencc_fmmseg_capi.dylib
+```
 
-### 7) Access violations / random crashes under heavy load
+---
 
-- Ensure each `OpenccFmmseg` instance is used from the thread that created it, or create separate instances per thread.
-- If using dependency injection, prefer **transient** or **scoped** lifecycle unless you’re certain the native layer is
-  fully multi-thread safe.
+## Thread Safety
 
-> ✅ **Tip:** NuGet is the simplest path for correct native deployment. Use **Project Reference + manual copy** only when
-> you know you need a custom build or local native debugging.
+* Do not share a single `OpenccFmmseg` instance across threads
+* Create one instance per thread or scope
+* Dispose instances promptly (`using` is recommended)
+
+---
 
 ## License
 
-This project is licensed under the MIT License.  
-See [LICENSE](https://github.com/laisuk/OpenccFmmsegLib/blob/master/LICENSE) for details.
+MIT License.
+See [LICENSE](https://github.com/laisuk/OpenccFmmsegLib/blob/master/LICENSE).
+
+---
 
 ## Acknowledgements
 
-- [OpenCC](https://github.com/BYVoid/OpenCC)
-- [opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg)
+* [OpenCC](https://github.com/BYVoid/OpenCC)
+* [opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg)
