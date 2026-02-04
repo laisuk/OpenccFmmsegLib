@@ -6,7 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.2.2] — 2026-01-31
+## [1.3.0] — 2026-01-31
 
 ### ✨ Added
 - Introduced the `OpenccConfig` enum as a strongly-typed conversion configuration.

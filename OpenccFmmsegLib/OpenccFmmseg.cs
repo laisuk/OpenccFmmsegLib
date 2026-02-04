@@ -115,7 +115,7 @@ namespace OpenccFmmsegLib
         /// </summary>
         /// <remarks>
         /// The returned value is a semantic version string in the form <c>x.y.z</c>
-        /// (for example, <c>0.8.4</c>), identifying the native library build.
+        /// (for example, <c>0.8.5</c>), identifying the native library build.
         /// <para/>
         /// This value is intended for diagnostics, logging, and display purposes.
         /// </remarks>

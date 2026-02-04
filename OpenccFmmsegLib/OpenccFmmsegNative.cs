@@ -53,7 +53,7 @@ namespace OpenccFmmsegLib
         /// </summary>
         /// <remarks>
         /// The returned string is a UTF-8, null-terminated version identifier
-        /// (for example, <c>"0.8.4"</c>).
+        /// (for example, <c>"0.8.5"</c>).
         ///
         /// <para>
         /// The returned pointer is owned by the native library and remains valid
