@@ -105,6 +105,7 @@ namespace OpenccFmmsegLib
         /// <returns>
         /// An integer representing the native ABI version.
         /// </returns>
+        /// <p>@Since v1.3.0</p>
         public static int GetNativeAbiNumber()
         {
             return (int)OpenccFmmsegNative.opencc_abi_number();
@@ -122,6 +123,7 @@ namespace OpenccFmmsegLib
         /// <returns>
         /// A semantic version string (<c>x.y.z</c>) reported by the native library.
         /// </returns>
+        /// <p>@Since v1.3.0</p>
         public static string GetNativeVersionString()
         {
             return Utf8BytesToString(OpenccFmmsegNative.opencc_version_string());
