@@ -217,11 +217,6 @@ public sealed class OpenccFmmsegTests
 
         private static OpenccFmmseg CreateOpencc()
         {
-            // TODO: adjust if your library requires a specific constructor/factory.
-            // Examples:
-            //   return new OpenccFmmseg();
-            //   return OpenccFmmseg.Create();
-            //   return new OpenccFmmseg(OpenccConfig.S2T);  // if you have config-bound instances
             return new OpenccFmmseg();
         }
 
