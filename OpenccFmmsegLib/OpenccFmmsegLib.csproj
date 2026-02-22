@@ -41,6 +41,9 @@
         <None Include="runtimes\win-x64\native\opencc_fmmseg_capi.dll"
               Pack="true"
               PackagePath="runtimes/win-x64/native/" />
+        <None Include="runtimes\linux-arm64\native\libopencc_fmmseg_capi.so"
+              Pack="true"
+              PackagePath="runtimes/linux-arm64/native/" />
         <None Include="runtimes\linux-x64\native\libopencc_fmmseg_capi.so"
               Pack="true"
               PackagePath="runtimes/linux-x64/native/" />
