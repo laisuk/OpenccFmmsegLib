@@ -14,7 +14,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### 🔄 Changed
 - Refactored native interop code into a dedicated native wrapper class for improved separation of concerns.
-- Updated the bundled **opencc-fmmseg C API** to **v0.8.5**.
+- Updated the bundled **opencc-fmmseg C API** to **v0.9.0**.
 
 ### 🐞 Fixed
 - Fixed a C# P/Invoke ABI mismatch by explicitly marshaling Rust `bool` parameters as `UnmanagedType.I1`
