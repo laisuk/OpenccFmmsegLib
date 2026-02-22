@@ -65,7 +65,7 @@ namespace OpenccFmmsegLib
         /// </returns>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr opencc_version_string();
-        
+
         /// <summary>
         /// Creates a new <c>OpenCC</c> instance in unmanaged memory.
         /// </summary>
@@ -167,6 +167,29 @@ namespace OpenccFmmsegLib
             byte[] input,
             int config,
             [MarshalAs(UnmanagedType.I1)] bool punctuation);
+
+        /// <summary>
+        /// Converts a UTF-8 input string using a numeric OpenCC config, writing to a caller-provided buffer.
+        /// Uses a size-query pattern: call with out_buf = NULL/out_cap = 0 to get required bytes (incl. '\0').
+        /// </summary>
+        /// <param name="opencc">Pointer to a valid native <c>OpenCC</c> instance.</param>
+        /// <param name="input">UTF-8 encoded byte array of the input string, null-terminated.</param>
+        /// <param name="config">Numeric config value (opencc_config_t).</param>
+        /// <param name="punctuation">Whether to convert punctuation marks.</param>
+        /// <param name="outBuf">Output buffer pointer (maybe IntPtr.Zero for size-query).</param>
+        /// <param name="outCap">Output buffer capacity in bytes.</param>
+        /// <param name="outRequired">Receives required bytes INCLUDING trailing '\0' (always written on return).</param>
+        /// <returns>true on success (including size-query), false on failure.</returns>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
+        [return: MarshalAs(UnmanagedType.I1)]
+        internal static extern bool opencc_convert_cfg_mem(
+            IntPtr opencc,
+            byte[] input,
+            int config,
+            [MarshalAs(UnmanagedType.I1)] bool punctuation,
+            IntPtr outBuf,
+            UIntPtr outCap,
+            out UIntPtr outRequired);
 
         /// <summary>
         /// Converts a canonical OpenCC config name (e.g. "s2twp") to a numeric config ID.

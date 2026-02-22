@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text;
 // using System.Reflection;
 using OpenccFmmsegLib;
 
@@ -47,6 +48,7 @@ public sealed class OpenccFmmsegTests
     }
 
     [TestMethod]
+    [DoNotParallelize]
     public void last_error_Test()
     {
         var result = OpenccFmmseg.LastError();
@@ -85,6 +87,7 @@ public sealed class OpenccFmmsegTests
     // between ConvertCfg(...) and LastError(), causing rare, non-deterministic failures.
     // This is expected behavior and not a correctness issue.
     [TestMethod]
+    [DoNotParallelize]
     public void ConvertCfg_InvalidConfig_ReturnsErrorString_AndSetsLastError()
     {
         // Intentionally invalid
@@ -203,6 +206,183 @@ public sealed class OpenccFmmsegTests
                     $"Version component '{part}' must be a non-negative integer."
                 );
             }
+        }
+    }
+
+    [TestClass]
+    public class OpenccFmmsegUtf8MemTests
+    {
+        private const string Input = "春眠不觉晓，处处闻啼鸟";
+        private const string Expected = "春眠不覺曉，處處聞啼鳥";
+
+        private static OpenccFmmseg CreateOpencc()
+        {
+            // TODO: adjust if your library requires a specific constructor/factory.
+            // Examples:
+            //   return new OpenccFmmseg();
+            //   return OpenccFmmseg.Create();
+            //   return new OpenccFmmseg(OpenccConfig.S2T);  // if you have config-bound instances
+            return new OpenccFmmseg();
+        }
+
+        [TestMethod]
+        public void ConvertCfgToUtf8Z_S2T_ReturnsUtf8Z_WithExpectedText()
+        {
+            using var opencc = CreateOpencc();
+            const int cfg = (int)OpenccConfig.S2T;
+
+            var utf8Z = opencc.ConvertCfgToUtf8Z(Input, cfg, punctuation: false);
+
+            Assert.IsNotNull(utf8Z);
+            Assert.IsGreaterThanOrEqualTo(1, utf8Z.Length, "UTF-8Z output must have at least a trailing NUL byte.");
+            Assert.AreEqual(0, utf8Z[^1], "UTF-8Z output must be NUL-terminated.");
+
+            // Decode excluding trailing '\0'
+            var s = Encoding.UTF8.GetString(utf8Z, 0, utf8Z.Length - 1);
+            Assert.AreEqual(Expected, s, "Converted string mismatch (S2T).");
+
+            // Punctuation should remain the fullwidth comma for S2T.
+            Assert.Contains("，", s, "Expected punctuation '，' to remain unchanged for this test case.");
+        }
+
+        [TestMethod]
+        public void TryConvertCfgToUtf8_S2T_SizeQuery_ExactWrite_AndTooSmallBuffer()
+        {
+            using var opencc = CreateOpencc();
+            const int cfg = (int)OpenccConfig.S2T;
+
+            // 1) Size-query via empty destination: should return false (too small),
+            // but must still report requiredBytes.
+            var empty = Span<byte>.Empty;
+            var okQuery = opencc.TryConvertCfgToUtf8(
+                Input,
+                cfg,
+                punctuation: false,
+                destination: empty,
+                out var requiredBytes);
+
+            Assert.IsFalse(okQuery, "Empty destination should fail (too small), but still provide requiredBytes.");
+            Assert.IsGreaterThan(0, requiredBytes, "requiredBytes must be > 0.");
+            Assert.IsGreaterThanOrEqualTo(1, requiredBytes, "requiredBytes must include trailing NUL.");
+
+            // 2) Too-small buffer (requiredBytes - 1) should fail and keep requiredBytes stable
+            if (requiredBytes > 1)
+            {
+                var tooSmall = new byte[requiredBytes - 1];
+                var okTooSmall = opencc.TryConvertCfgToUtf8(
+                    Input,
+                    cfg,
+                    punctuation: false,
+                    destination: tooSmall,
+                    out var requiredBytes2);
+
+                Assert.IsFalse(okTooSmall, "Buffer smaller than required must fail.");
+                Assert.AreEqual(requiredBytes, requiredBytes2,
+                    "requiredBytes should remain consistent across calls.");
+            }
+
+            // 3) Exact-sized buffer should succeed
+            var dst = new byte[requiredBytes];
+            var okWrite = opencc.TryConvertCfgToUtf8(
+                Input,
+                cfg,
+                punctuation: false,
+                destination: dst,
+                out var requiredBytes3);
+
+            Assert.IsTrue(okWrite, "Exact-sized buffer should succeed.");
+            Assert.AreEqual(requiredBytes, requiredBytes3,
+                "requiredBytes should match the exact buffer size used.");
+
+            // Must be NUL-terminated
+            Assert.AreEqual(0, dst[^1], "Destination must end with NUL byte.");
+
+            // Decode excluding trailing '\0'
+            var converted = Encoding.UTF8.GetString(dst, 0, dst.Length - 1);
+            Assert.AreEqual(Expected, converted, "Converted string mismatch (S2T).");
+
+            // Sanity: should differ from input due to 覺曉 conversion
+            Assert.AreNotEqual(Input, converted, "S2T conversion should modify the string for this input.");
+            Assert.Contains("覺曉", converted, "Expected substring '覺曉' not found in conversion output.");
+        }
+
+        [TestMethod]
+        public void TryConvertCfgToUtf8_EmptyInput_WritesSingleNul()
+        {
+            using var opencc = CreateOpencc();
+            var cfg = (int)OpenccConfig.S2T;
+
+            var dst = new byte[1];
+            var ok = opencc.TryConvertCfgToUtf8(
+                input: "",
+                configId: cfg,
+                punctuation: false,
+                destination: dst,
+                out var requiredBytes);
+
+            Assert.IsTrue(ok, "Empty input should succeed when destination has at least 1 byte.");
+            Assert.AreEqual(1, requiredBytes, "Empty input requires exactly 1 byte (NUL).");
+            Assert.AreEqual(0, dst[0], "Empty input output must be a single NUL byte.");
+        }
+
+        [TestMethod]
+        [DoNotParallelize]
+        public void InvalidConfigId_ShouldFail_AndSetLastError()
+        {
+            using var opencc = CreateOpencc();
+            const int invalidCfg = 9999;
+
+            // --- A) ConvertCfgToUtf8Z: wrapper throws on invalid config
+
+            InvalidOperationException? ex = null;
+
+            try
+            {
+                _ = opencc.ConvertCfgToUtf8Z(Input, invalidCfg, punctuation: false);
+                Assert.Fail("Expected InvalidOperationException for invalid configId.");
+            }
+            catch (InvalidOperationException e)
+            {
+                ex = e;
+            }
+
+            Assert.IsNotNull(ex);
+            Assert.Contains("invalid config", ex.Message.ToLowerInvariant());
+            Assert.Contains(invalidCfg.ToString(), ex.Message);
+
+            // NOTE:
+            // OpenccFmmseg.LastError() is backed by a static/native global error slot.
+            // In parallel MSTest execution, another test invoking OpenCC APIs may
+            // overwrite or clear the last error before we read it here.
+            // If test execution is parallelized, this assertion may intermittently
+            // observe "no_error" even though this test triggered the invalid config.
+            //
+            // If such flakiness appears, consider:
+            //   - Disabling parallelization for this test class, or
+            //   - Serializing tests that depend on LastError(), or
+            //   - Refactoring native LastError to be thread-local instead of global.
+            var err = OpenccFmmseg.LastError();
+            Assert.IsFalse(string.IsNullOrWhiteSpace(err), "LastError should be set after invalid config failure.");
+            Assert.Contains("invalid config", err.ToLowerInvariant());
+            Assert.Contains(invalidCfg.ToString(), err);
+
+            // --- B) TryConvertCfgToUtf8: should report required bytes and fail
+            var empty = Span<byte>.Empty;
+            var okQuery = opencc.TryConvertCfgToUtf8(
+                Input,
+                invalidCfg,
+                punctuation: false,
+                destination: empty,
+                out var requiredBytes);
+
+            Assert.IsFalse(okQuery, "Invalid config should fail TryConvertCfgToUtf8.");
+            Assert.IsGreaterThanOrEqualTo(0, requiredBytes,
+                "requiredBytes should be set (may be 0 depending on native behavior).");
+
+            var err2 = OpenccFmmseg.LastError();
+            Assert.IsFalse(string.IsNullOrWhiteSpace(err2));
+            Assert.Contains("invalid config", err2.ToLowerInvariant());
+            Assert.Contains(invalidCfg.ToString(), err2);
         }
     }
 }
