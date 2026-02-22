@@ -59,6 +59,7 @@ runtimes/<RID>/native/
 **Shipped RIDs:**
 
 * `win-x64`
+* `linux-arm64`
 * `linux-x64`
 * `osx-x64`
 * `osx-arm64`
@@ -120,6 +121,9 @@ Console.WriteLine(code); // 2 (Simplified Chinese)
 
 * `string Convert(string input, string config, bool punctuation = false)`
   Converts Chinese text using the specified OpenCC configuration.
+
+* `string Convert(string input, OpenccConfig configId, bool punctuation = false)`
+  Converts Chinese text using the OpenCC configuration Enum.
 
 * `int ZhoCheck(string input)`
   Detects whether the input text is Simplified Chinese, Traditional Chinese, or non-Chinese.
