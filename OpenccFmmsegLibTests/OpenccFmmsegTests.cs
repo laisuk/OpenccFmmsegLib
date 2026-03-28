@@ -380,4 +380,99 @@ public sealed class OpenccFmmsegTests
             Assert.Contains(invalidCfg.ToString(), err2);
         }
     }
+
+    [TestClass]
+    public class OpenccFmmsegFastTests
+    {
+        private const string Input =
+            "意大利罗浮宫里收藏的“蒙娜丽莎的微笑”画像是旷世之作。";
+
+        private const string Expected =
+            "義大利羅浮宮裡收藏的「蒙娜麗莎的微笑」畫像是曠世之作。";
+
+        [TestMethod]
+        public void ConvertCfgFast_WithOpenccConfigEnum_ReturnsExpectedText()
+        {
+            using var opencc = new OpenccFmmseg();
+            var result = opencc.ConvertCfgFast(
+                Input,
+                (int)OpenccConfig.S2TWP,
+                punctuation: true);
+
+            Assert.AreEqual(Expected, result);
+        }
+
+        [TestMethod]
+        public void ConvertCfgFast_WithEnumVariableId_ReturnsExpectedText()
+        {
+            using var opencc = new OpenccFmmseg();
+            const OpenccConfig config = OpenccConfig.S2TWP;
+
+            var result = opencc.ConvertCfgFast(
+                Input,
+                (int)config,
+                punctuation: true);
+
+            Assert.AreEqual(Expected, result);
+        }
+
+        [TestMethod]
+        public void ConvertCfgFast_WithNumericConfigId_ReturnsExpectedText()
+        {
+            using var opencc = new OpenccFmmseg();
+            const int configId = (int)OpenccConfig.S2TWP;
+
+            var result = opencc.ConvertCfgFast(
+                Input,
+                configId,
+                punctuation: true);
+
+            Assert.AreEqual(Expected, result);
+        }
+
+        [TestMethod]
+        public void ConvertCfgFastUtf8Z_ReturnsExpectedBytes()
+        {
+            using var opencc = new OpenccFmmseg();
+
+            const string input = "意大利罗浮宫里收藏的“蒙娜丽莎的微笑”画像是旷世之作。";
+            const string expected = "義大利羅浮宮裡收藏的「蒙娜麗莎的微笑」畫像是曠世之作。";
+
+            var bytes = opencc.ConvertCfgFastUtf8Z(
+                input,
+                (int)OpenccConfig.S2TWP,
+                punctuation: true);
+
+            Assert.IsGreaterThanOrEqualTo(1, bytes.Length);
+            Assert.AreEqual(0, bytes[^1], "Returned buffer must be NUL-terminated.");
+
+            var actual = new UTF8Encoding(false, true).GetString(bytes, 0, bytes.Length - 1);
+
+            Assert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void ConvertCfgFast_SmallInput_UsesStackPath()
+        {
+            using var opencc = new OpenccFmmseg();
+
+            var result = opencc.ConvertCfgFast("中国", (int)OpenccConfig.S2T);
+
+            Assert.AreEqual("中國", result);
+        }
+
+        [TestMethod]
+        public void ConvertCfgFast_LargeInput_UsesFallbackPath()
+        {
+            using var opencc = new OpenccFmmseg();
+
+            const int len = 2000; // definitely exceeds 1024 buffer
+            var large = new string('汉', len);
+            var expected = new string('漢', len);
+
+            var result = opencc.ConvertCfgFast(large, (int)OpenccConfig.S2T);
+
+            Assert.AreEqual(expected, result); // or real expected
+        }
+    }
 }

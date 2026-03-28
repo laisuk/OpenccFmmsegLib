@@ -67,6 +67,76 @@ namespace OpenccFmmsegLib
         }
 
         /// <summary>
+        /// Decodes a UTF-8 byte span into a managed <see cref="string"/>.
+        /// </summary>
+        /// <param name="bytes">The UTF-8 bytes to decode.</param>
+        /// <returns>The decoded managed string.</returns>
+        /// <remarks>
+        /// This helper is intended for span-based call sites on targets where
+        /// <see cref="Encoding.GetString(byte[])"/> is available but span-based
+        /// decoding overloads are not.
+        /// </remarks>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe string ToString(ReadOnlySpan<byte> bytes)
+        {
+            if (bytes.Length == 0)
+                return string.Empty;
+
+            fixed (byte* ptr = bytes)
+            {
+                return Utf8Strict.GetString(ptr, bytes.Length);
+            }
+        }
+
+        /// <summary>
+        /// Decodes a UTF-8 string from unmanaged memory using a known byte length,
+        /// avoiding a scan for the NUL terminator.
+        /// </summary>
+        /// <param name="ptr">
+        /// Pointer to a UTF-8 encoded byte sequence.
+        /// </param>
+        /// <param name="length">
+        /// The number of bytes to decode, excluding any trailing NUL byte.
+        /// </param>
+        /// <returns>
+        /// The decoded managed string. If <paramref name="ptr"/> is <see cref="IntPtr.Zero"/>
+        /// or <paramref name="length"/> is less than or equal to zero, an empty string is returned.
+        /// </returns>
+        /// <remarks>
+        /// <para>
+        /// This is a fast-path alternative to <see cref="ToStringZ(IntPtr)"/> when the byte length
+        /// of the UTF-8 string is already known (for example, from a native size-query API).
+        /// </para>
+        /// <para>
+        /// Unlike <see cref="ToStringZ(IntPtr)"/>, this method does <b>not</b> scan memory for a
+        /// NUL terminator, and instead directly decodes the specified number of bytes.
+        /// </para>
+        /// <para>
+        /// The caller must ensure that:
+        /// <list type="bullet">
+        /// <item><description>
+        /// <paramref name="ptr"/> points to a valid, readable UTF-8 byte sequence.
+        /// </description></item>
+        /// <item><description>
+        /// <paramref name="length"/> correctly reflects the number of valid UTF-8 bytes.
+        /// </description></item>
+        /// </list>
+        /// </para>
+        /// <para>
+        /// Passing an incorrect length may result in truncated output or a decoding exception
+        /// if invalid UTF-8 sequences are encountered.
+        /// </para>
+        /// </remarks>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe string ToStringZ(IntPtr ptr, int length)
+        {
+            if (ptr == IntPtr.Zero || length <= 0)
+                return string.Empty;
+
+            return Utf8Strict.GetString((byte*)ptr, length);
+        }
+
+        /// <summary>
         /// Shared UTF-8 decoder instance.
         /// Configured to never emit a BOM and to throw on invalid byte sequences.
         /// </summary>

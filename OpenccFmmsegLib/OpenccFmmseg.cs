@@ -100,7 +100,6 @@ namespace OpenccFmmsegLib
         /// <returns>
         /// An integer representing the native ABI version.
         /// </returns>
-        /// <p>@Since v1.3.0</p>
         public static int GetNativeAbiNumber()
         {
             return (int)OpenccFmmsegNative.opencc_abi_number();
@@ -118,7 +117,6 @@ namespace OpenccFmmsegLib
         /// <returns>
         /// A semantic version string (<c>x.y.z</c>) reported by the native library.
         /// </returns>
-        /// <p>@Since v1.3.0</p>
         public static string GetNativeVersionString()
         {
             return Utf8Z.ToStringZ(OpenccFmmsegNative.opencc_version_string());
@@ -545,6 +543,125 @@ namespace OpenccFmmsegLib
             }
         }
 
+        /// <summary>
+        /// Converts text using a numeric OpenCC configuration into a caller-provided UTF-8 buffer,
+        /// using the explicit input-length native API.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This is an advanced, allocation-minimizing API intended for interop and high-throughput scenarios.
+        /// It wraps the native <c>opencc_convert_cfg_mem_len</c> function and follows a size-query pattern:
+        /// the conversion is first queried to determine the required output size (in bytes), then written
+        /// into <paramref name="destination"/>.
+        /// </para>
+        /// <para>
+        /// Unlike <see cref="TryConvertCfgToUtf8"/>, this method uses the explicit input-length native path,
+        /// so the input buffer does not need to be null-terminated.
+        /// </para>
+        /// <para>
+        /// If this method returns <see langword="false"/>, call <see cref="LastError"/> to retrieve a
+        /// human-readable native error message.
+        /// </para>
+        /// </remarks>
+        /// <param name="input">
+        /// Input text as a managed .NET <see cref="string"/> (UTF-16).
+        /// If <paramref name="input"/> is <see langword="null"/> or empty, the result is an empty UTF-8 string
+        /// (a single NUL byte).
+        /// </param>
+        /// <param name="configId">
+        /// Numeric OpenCC configuration identifier (for example <c>OPENCC_CONFIG_S2TWP</c>).
+        /// </param>
+        /// <param name="punctuation">
+        /// Whether to convert punctuation (some configurations may ignore this flag).
+        /// </param>
+        /// <param name="destination">
+        /// Destination buffer that receives the UTF-8 output including the trailing NUL byte.
+        /// Provide a buffer of at least <paramref name="requiredBytes"/> bytes.
+        /// </param>
+        /// <param name="requiredBytes">
+        /// Receives the required buffer size in bytes, including the trailing NUL byte.
+        /// This value is set even when the method returns <see langword="false"/>.
+        /// For <see langword="null"/> or empty input, this will be 1.
+        /// </param>
+        /// <returns>
+        /// <see langword="true"/> if the conversion succeeded (including the empty-string case);
+        /// otherwise <see langword="false"/>.
+        /// </returns>
+        /// <exception cref="ObjectDisposedException">
+        /// Thrown if this instance has been disposed.
+        /// </exception>
+        /// <exception cref="OverflowException">
+        /// Thrown if the required buffer size exceeds <see cref="int.MaxValue"/>.
+        /// </exception>
+        public unsafe bool TryConvertCfgToUtf8Into(
+            string input,
+            int configId,
+            bool punctuation,
+            Span<byte> destination,
+            out int requiredBytes)
+        {
+            ThrowIfDisposed();
+
+            if (string.IsNullOrEmpty(input))
+            {
+                requiredBytes = 1;
+                if (destination.Length < 1)
+                    return false;
+
+                destination[0] = 0;
+                return true;
+            }
+
+            var inputByteCount = Encoding.UTF8.GetByteCount(input);
+            byte[] inputBuffer = null;
+
+            try
+            {
+                inputBuffer = ArrayPool<byte>.Shared.Rent(inputByteCount);
+                var written = Encoding.UTF8.GetBytes(input, 0, input.Length, inputBuffer, 0);
+
+                // size query
+                var okQuery = OpenccFmmsegNative.opencc_convert_cfg_mem_len(
+                    _openccInstance,
+                    inputBuffer,
+                    (UIntPtr)written,
+                    configId,
+                    punctuation,
+                    IntPtr.Zero,
+                    (UIntPtr)0,
+                    out var required);
+
+                requiredBytes = ToInt32Checked(required);
+
+                if (!okQuery)
+                    return false;
+
+                if (destination.Length < requiredBytes)
+                    return false;
+
+                fixed (byte* dstPtr = destination)
+                {
+                    var ok = OpenccFmmsegNative.opencc_convert_cfg_mem_len(
+                        _openccInstance,
+                        inputBuffer,
+                        (UIntPtr)written,
+                        configId,
+                        punctuation,
+                        (IntPtr)dstPtr,
+                        (UIntPtr)destination.Length,
+                        out var required2);
+
+                    requiredBytes = ToInt32Checked(required2);
+                    return ok;
+                }
+            }
+            finally
+            {
+                if (inputBuffer != null)
+                    ArrayPool<byte>.Shared.Return(inputBuffer);
+            }
+        }
+
         private static int ToInt32Checked(UIntPtr value)
         {
             var v = value.ToUInt64();
@@ -611,6 +728,156 @@ namespace OpenccFmmsegLib
             var err = LastError();
             throw new InvalidOperationException(
                 string.IsNullOrWhiteSpace(err) ? "OpenccFmmseg conversion failed." : err);
+        }
+
+        /// <summary>
+        /// Converts text using a numeric OpenCC configuration and returns a newly
+        /// allocated UTF-8 byte array including a trailing NUL terminator.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This is an advanced API intended for interop, native bridging, and other
+        /// performance-sensitive scenarios where the caller wants a managed UTF-8 buffer
+        /// instead of a managed <see cref="string"/>.
+        /// </para>
+        /// <para>
+        /// Internally, this method uses the explicit input-length native buffer API
+        /// (<c>opencc_convert_cfg_mem_len</c>) and allocates the result entirely in
+        /// managed memory.
+        /// </para>
+        /// <para>
+        /// The returned byte array always represents a valid UTF-8 C-style string and
+        /// includes a trailing NUL byte (<c>0x00</c>).
+        /// </para>
+        /// <para>
+        /// For callers that want to reuse their own destination buffer, prefer
+        /// <see cref="TryConvertCfgToUtf8Into(string,int,bool,System.Span{byte},out int)"/>.
+        /// </para>
+        /// </remarks>
+        /// <param name="input">
+        /// Input text as a managed .NET <see cref="string"/> (UTF-16).
+        /// If <paramref name="input"/> is <see langword="null"/> or empty, the result is
+        /// a single NUL byte.
+        /// </param>
+        /// <param name="configId">
+        /// Numeric OpenCC configuration identifier (for example <c>OPENCC_CONFIG_S2TWP</c>).
+        /// </param>
+        /// <param name="punctuation">
+        /// Whether to convert punctuation. Some configurations may ignore this flag.
+        /// </param>
+        /// <returns>
+        /// A newly allocated UTF-8 byte array containing the converted text,
+        /// terminated with a trailing NUL byte.
+        /// </returns>
+        /// <exception cref="ObjectDisposedException">
+        /// Thrown if this instance has been disposed.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown if the conversion fails. The exception message contains the
+        /// native error returned by <see cref="LastError"/> when available.
+        /// </exception>
+        /// <para>
+        /// For a string-returning variant, see <see cref="ConvertCfgFast(string,int,bool)"/>.
+        /// </para>
+        public byte[] ConvertCfgFastUtf8Z(string input, int configId, bool punctuation = false)
+        {
+            ThrowIfDisposed();
+
+            var dummy = Span<byte>.Empty;
+            _ = TryConvertCfgToUtf8Into(input, configId, punctuation, dummy, out var requiredBytes);
+
+            var buffer = new byte[requiredBytes];
+
+            if (TryConvertCfgToUtf8Into(input, configId, punctuation, buffer, out _))
+                return buffer;
+
+            var err = LastError();
+            throw new InvalidOperationException(
+                string.IsNullOrWhiteSpace(err) ? "OpenccFmmseg conversion failed." : err);
+        }
+
+        /// <summary>
+        /// Converts text using a numeric OpenCC configuration and returns the result as a managed string,
+        /// using the optimized buffer-based native API.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This is an advanced API intended for high-performance scenarios. It uses the explicit
+        /// input-length native conversion path (<c>opencc_convert_cfg_mem_len</c>) to avoid
+        /// unnecessary null-terminator scans and native heap allocations.
+        /// </para>
+        /// <para>
+        /// Compared to <see cref="ConvertCfg(string,int,bool)"/>, this method:
+        /// <list type="bullet">
+        /// <item><description>avoids native string allocation</description></item>
+        /// <item><description>avoids input null-termination</description></item>
+        /// <item><description>avoids output scan for NUL</description></item>
+        /// </list>
+        /// </para>
+        /// <para>
+        /// If conversion fails, this method throws an <see cref="InvalidOperationException"/>
+        /// containing the native error message from <see cref="LastError"/>.
+        /// </para>
+        /// </remarks>
+        /// <param name="input">
+        /// Input text as a managed .NET <see cref="string"/> (UTF-16).
+        /// If <paramref name="input"/> is <see langword="null"/> or empty, an empty string is returned.
+        /// </param>
+        /// <param name="configId">
+        /// Numeric OpenCC configuration identifier (for example <c>OPENCC_CONFIG_S2TWP</c>).
+        /// </param>
+        /// <param name="punctuation">
+        /// Whether to convert punctuation. Some configurations may ignore this flag.
+        /// </param>
+        /// <returns>
+        /// The converted text as a managed <see cref="string"/>.
+        /// </returns>
+        /// <exception cref="ObjectDisposedException">
+        /// Thrown if this instance has been disposed.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown if native conversion fails.
+        /// </exception>
+        /// <para>
+        /// For a UTF-8 buffer-returning variant, see <see cref="ConvertCfgFastUtf8Z(string,int,bool)"/>.
+        /// </para>
+        public string ConvertCfgFast(string input, int configId, bool punctuation = false)
+        {
+            ThrowIfDisposed();
+
+            if (string.IsNullOrEmpty(input))
+                return string.Empty;
+
+            // First: try stack buffer (fast path)
+            Span<byte> stackBuffer = stackalloc byte[1024];
+
+            if (TryConvertCfgToUtf8Into(input, configId, punctuation, stackBuffer, out var requiredBytes))
+            {
+                return requiredBytes <= 1
+                    ? string.Empty
+                    : Utf8Z.ToString(stackBuffer.Slice(0, requiredBytes - 1));
+            }
+
+            if (requiredBytes <= 0)
+                throw new InvalidOperationException(LastError());
+
+            // Fallback: pooled buffer
+            var rented = ArrayPool<byte>.Shared.Rent(requiredBytes);
+            try
+            {
+                var buffer = rented.AsSpan(0, requiredBytes);
+
+                if (!TryConvertCfgToUtf8Into(input, configId, punctuation, buffer, out requiredBytes))
+                    throw new InvalidOperationException(LastError());
+
+                return requiredBytes <= 1
+                    ? string.Empty
+                    : Utf8Z.ToString(buffer.Slice(0, requiredBytes - 1));
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
         }
 
         /// <summary>

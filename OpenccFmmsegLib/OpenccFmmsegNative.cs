@@ -190,6 +190,35 @@ namespace OpenccFmmsegLib
             IntPtr outBuf,
             UIntPtr outCap,
             out UIntPtr outRequired);
+        
+        /// <summary>
+        /// Converts a UTF-8 input buffer using a numeric OpenCC config, writing to a caller-provided buffer.
+        /// Uses a size-query pattern: call with out_buf = NULL/out_cap = 0 to get required bytes (incl. '\0').
+        /// </summary>
+        /// <remarks>
+        /// This variant accepts an explicit input length and does NOT require the input to be null-terminated.
+        /// It avoids scanning for a trailing NUL byte and is the preferred API for high-performance scenarios.
+        /// </remarks>
+        /// <param name="opencc">Pointer to a valid native <c>OpenCC</c> instance.</param>
+        /// <param name="input">UTF-8 encoded byte array of the input string (not required to be null-terminated).</param>
+        /// <param name="inputLen">Number of bytes in <paramref name="input"/>.</param>
+        /// <param name="config">Numeric config value (opencc_config_t).</param>
+        /// <param name="punctuation">Whether to convert punctuation marks.</param>
+        /// <param name="outBuf">Output buffer pointer (maybe IntPtr.Zero for size-query).</param>
+        /// <param name="outCap">Output buffer capacity in bytes.</param>
+        /// <param name="outRequired">Receives required bytes INCLUDING trailing '\0' (always written on return).</param>
+        /// <returns>true on success (including size-query), false on failure.</returns>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        [return: MarshalAs(UnmanagedType.I1)]
+        internal static extern bool opencc_convert_cfg_mem_len(
+            IntPtr opencc,
+            byte[] input,
+            UIntPtr inputLen,
+            int config,
+            [MarshalAs(UnmanagedType.I1)] bool punctuation,
+            IntPtr outBuf,
+            UIntPtr outCap,
+            out UIntPtr outRequired);
 
         /// <summary>
         /// Converts a canonical OpenCC config name (e.g. "s2twp") to a numeric config ID.
