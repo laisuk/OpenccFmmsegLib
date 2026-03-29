@@ -20,8 +20,8 @@
         <PackageReleaseNotes>v1.3.1
 
             - Added high-performance conversion APIs:
-            - ConvertCfgFast() for optimized string conversion (no native allocation, no redundant scans)
-            - ConvertCfgFastUtf8Z() for managed UTF-8 buffer output with trailing NUL
+            - ConvertCfgMemLen() for optimized string conversion (no native allocation, no redundant scans)
+            - ConvertCfgMemLenUtf8Z() for managed UTF-8 buffer output with trailing NUL
 
             - Introduced explicit-length conversion pipeline using native `opencc_convert_cfg_mem_len`:
             - Eliminates input/output NUL scanning
@@ -34,7 +34,7 @@
             - Added Span-based decoding helper (netstandard2.0-compatible)
 
             - Refined API layering:
-            - Clear separation between classic (`ConvertCfg`) and optimized (`FastXXX`) paths
+            - Clear separation between classic (`ConvertCfg`) and optimized (`MemLenXXX`) paths
             - Maintained full backward compatibility
 
             - Updated native dependency:

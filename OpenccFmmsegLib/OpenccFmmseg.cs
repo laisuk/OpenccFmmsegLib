@@ -777,9 +777,9 @@ namespace OpenccFmmsegLib
         /// native error returned by <see cref="LastError"/> when available.
         /// </exception>
         /// <para>
-        /// For a string-returning variant, see <see cref="ConvertCfgFast(string,int,bool)"/>.
+        /// For a string-returning variant, see <see cref="ConvertCfgMemLen"/>.
         /// </para>
-        public byte[] ConvertCfgFastUtf8Z(string input, int configId, bool punctuation = false)
+        public byte[] ConvertCfgMemLenUtf8Z(string input, int configId, bool punctuation = false)
         {
             ThrowIfDisposed();
 
@@ -839,9 +839,9 @@ namespace OpenccFmmsegLib
         /// Thrown if native conversion fails.
         /// </exception>
         /// <para>
-        /// For a UTF-8 buffer-returning variant, see <see cref="ConvertCfgFastUtf8Z(string,int,bool)"/>.
+        /// For a UTF-8 buffer-returning variant, see <see cref="ConvertCfgMemLenUtf8Z"/>.
         /// </para>
-        public string ConvertCfgFast(string input, int configId, bool punctuation = false)
+        public string ConvertCfgMemLen(string input, int configId, bool punctuation = false)
         {
             ThrowIfDisposed();
 

@@ -394,7 +394,7 @@ public sealed class OpenccFmmsegTests
         public void ConvertCfgFast_WithOpenccConfigEnum_ReturnsExpectedText()
         {
             using var opencc = new OpenccFmmseg();
-            var result = opencc.ConvertCfgFast(
+            var result = opencc.ConvertCfgMemLen(
                 Input,
                 (int)OpenccConfig.S2TWP,
                 punctuation: true);
@@ -408,7 +408,7 @@ public sealed class OpenccFmmsegTests
             using var opencc = new OpenccFmmseg();
             const OpenccConfig config = OpenccConfig.S2TWP;
 
-            var result = opencc.ConvertCfgFast(
+            var result = opencc.ConvertCfgMemLen(
                 Input,
                 (int)config,
                 punctuation: true);
@@ -422,7 +422,7 @@ public sealed class OpenccFmmsegTests
             using var opencc = new OpenccFmmseg();
             const int configId = (int)OpenccConfig.S2TWP;
 
-            var result = opencc.ConvertCfgFast(
+            var result = opencc.ConvertCfgMemLen(
                 Input,
                 configId,
                 punctuation: true);
@@ -438,7 +438,7 @@ public sealed class OpenccFmmsegTests
             const string input = "意大利罗浮宫里收藏的“蒙娜丽莎的微笑”画像是旷世之作。";
             const string expected = "義大利羅浮宮裡收藏的「蒙娜麗莎的微笑」畫像是曠世之作。";
 
-            var bytes = opencc.ConvertCfgFastUtf8Z(
+            var bytes = opencc.ConvertCfgMemLenUtf8Z(
                 input,
                 (int)OpenccConfig.S2TWP,
                 punctuation: true);
@@ -456,7 +456,7 @@ public sealed class OpenccFmmsegTests
         {
             using var opencc = new OpenccFmmseg();
 
-            var result = opencc.ConvertCfgFast("中国", (int)OpenccConfig.S2T);
+            var result = opencc.ConvertCfgMemLen("中国", (int)OpenccConfig.S2T);
 
             Assert.AreEqual("中國", result);
         }
@@ -470,7 +470,7 @@ public sealed class OpenccFmmsegTests
             var large = new string('汉', len);
             var expected = new string('漢', len);
 
-            var result = opencc.ConvertCfgFast(large, (int)OpenccConfig.S2T);
+            var result = opencc.ConvertCfgMemLen(large, (int)OpenccConfig.S2T);
 
             Assert.AreEqual(expected, result); // or real expected
         }
