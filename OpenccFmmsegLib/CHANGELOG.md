@@ -12,7 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 - Added high-performance conversion APIs:
     - `ConvertCfgmemLen(...)` for optimized string conversion using the new buffer-based pipeline.
-    - `ConvertCfgMemLenUtf8Z(...)` for managed UTF-8 output (NUL-terminated).
+    - `ConvertCfgMemLenToUtf8Z(...)` for managed UTF-8 output (NUL-terminated).
 - Added `TryConvertCfgToUtf8Into(...)` for caller-provided buffer scenarios (Span-based, allocation-free).
 - Added fast UTF-8 decoding helpers in `Utf8Z`:
     - Pointer + length decoding (no NUL scan)

@@ -438,7 +438,7 @@ public sealed class OpenccFmmsegTests
             const string input = "意大利罗浮宫里收藏的“蒙娜丽莎的微笑”画像是旷世之作。";
             const string expected = "義大利羅浮宮裡收藏的「蒙娜麗莎的微笑」畫像是曠世之作。";
 
-            var bytes = opencc.ConvertCfgMemLenUtf8Z(
+            var bytes = opencc.ConvertCfgMemLenToUtf8Z(
                 input,
                 (int)OpenccConfig.S2TWP,
                 punctuation: true);

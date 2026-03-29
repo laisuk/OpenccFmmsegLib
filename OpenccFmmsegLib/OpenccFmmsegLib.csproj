@@ -21,7 +21,7 @@
 
             - Added high-performance conversion APIs:
             - ConvertCfgMemLen() for optimized string conversion (no native allocation, no redundant scans)
-            - ConvertCfgMemLenUtf8Z() for managed UTF-8 buffer output with trailing NUL
+            - ConvertCfgMemLenToUtf8Z() for managed UTF-8 buffer output with trailing NUL
 
             - Introduced explicit-length conversion pipeline using native `opencc_convert_cfg_mem_len`:
             - Eliminates input/output NUL scanning

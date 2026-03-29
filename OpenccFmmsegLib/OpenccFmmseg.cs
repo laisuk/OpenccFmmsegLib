@@ -779,7 +779,7 @@ namespace OpenccFmmsegLib
         /// <para>
         /// For a string-returning variant, see <see cref="ConvertCfgMemLen"/>.
         /// </para>
-        public byte[] ConvertCfgMemLenUtf8Z(string input, int configId, bool punctuation = false)
+        public byte[] ConvertCfgMemLenToUtf8Z(string input, int configId, bool punctuation = false)
         {
             ThrowIfDisposed();
 
@@ -839,7 +839,7 @@ namespace OpenccFmmsegLib
         /// Thrown if native conversion fails.
         /// </exception>
         /// <para>
-        /// For a UTF-8 buffer-returning variant, see <see cref="ConvertCfgMemLenUtf8Z"/>.
+        /// For a UTF-8 buffer-returning variant, see <see cref="ConvertCfgMemLenToUtf8Z"/>.
         /// </para>
         public string ConvertCfgMemLen(string input, int configId, bool punctuation = false)
         {
