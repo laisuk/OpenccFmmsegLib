@@ -6,6 +6,12 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.3.2] — 2026-04-22
+
+- Update native `opencc-fmmseg-capi` to v0.9.2
+
+---
+
 ## [1.3.1] — 2026-03-29
 
 ### ✨ Added
