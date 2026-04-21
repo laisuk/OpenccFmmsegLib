@@ -19,7 +19,7 @@ For Jieba segmentation and keyword extraction, use **OpenccJiebaLib** instead.
 * OpenCC-compatible Chinese text conversion (Simplified / Traditional variants)
 * Optional punctuation conversion
 * Fast FMM-based segmentation engine under the hood (native Rust)
-* Lightweight API with no hidden global state
+* Lightweight API with explicit native error-reporting semantics
 * Safe native resource management via `IDisposable`
 
 ---
@@ -120,16 +120,31 @@ Console.WriteLine(code); // 2 (Simplified Chinese)
 ### `OpenccFmmseg`
 
 * `string Convert(string input, string config, bool punctuation = false)`
-  Converts Chinese text using the specified OpenCC configuration.
+  Converts Chinese text using the specified canonical OpenCC configuration name and throws for invalid names.
 
 * `string Convert(string input, OpenccConfig configId, bool punctuation = false)`
   Converts Chinese text using the OpenCC configuration Enum.
+
+* `string ConvertCfg(string input, OpenccConfig configId, bool punctuation = false)`
+  Converts Chinese text using the numeric-config native path with a typed config enum.
+
+* `string ConvertCfgMemLen(string input, int configId, bool punctuation = false)`
+  Converts Chinese text using the optimized explicit-length native buffer pipeline.
+
+* `byte[] ConvertCfgMemLenToUtf8Z(string input, int configId, bool punctuation = false)`
+  Returns UTF-8 output including a trailing NUL terminator for interop scenarios.
+
+* `bool TryConvertCfgToUtf8(string input, int configId, bool punctuation, Span<byte> destination, out int requiredBytes)`
+  Writes UTF-8 output into a caller-provided buffer using the native size-query API.
+
+* `bool TryConvertCfgToUtf8Into(string input, int configId, bool punctuation, Span<byte> destination, out int requiredBytes)`
+  Writes UTF-8 output into a caller-provided buffer using the explicit-length native API.
 
 * `int ZhoCheck(string input)`
   Detects whether the input text is Simplified Chinese, Traditional Chinese, or non-Chinese.
 
 * `static string LastError()`
-  Returns the last error message reported by the native library.
+  Returns the last error message reported by the native library's shared error slot.
 
 * Implements `IDisposable` for deterministic native resource cleanup.
 
@@ -187,3 +202,5 @@ See [LICENSE](https://github.com/laisuk/OpenccFmmsegLib/blob/master/LICENSE).
 
 * [OpenCC](https://github.com/BYVoid/OpenCC)
 * [opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg)
+
+

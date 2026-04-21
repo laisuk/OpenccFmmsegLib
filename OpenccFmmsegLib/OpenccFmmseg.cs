@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Buffers;
@@ -125,26 +125,45 @@ namespace OpenccFmmsegLib
         /// <summary>
         /// Converts the input Chinese text using the specified OpenCC configuration.
         /// </summary>
-        /// <param name="input">The input string to convert.</param>
-        /// <param name="config">The conversion configuration (e.g., "s2t", "t2s").</param>
-        /// <param name="punctuation">Whether to convert punctuation as well.</param>
-        /// <returns>The converted string, or an empty string if input is null or empty.</returns>
+        /// <param name="input">
+        /// The UTF-16 .NET input string to convert.
+        /// If <paramref name="input"/> is <c>null</c> or empty, this method returns an empty string.
+        /// </param>
+        /// <param name="config">
+        /// Canonical OpenCC configuration name (for example, <c>"s2t"</c>, <c>"s2twp"</c>, <c>"t2hk"</c>).
+        /// Case-insensitive, but otherwise validated strictly.
+        /// </param>
+        /// <param name="punctuation">
+        /// <c>true</c> to convert punctuation as well; otherwise <c>false</c>.
+        /// </param>
+        /// <returns>
+        /// The converted string on success.
+        /// </returns>
+        /// <remarks>
+        /// <para>
+        /// This overload validates <paramref name="config"/> using the managed configuration parser
+        /// and throws for unsupported names instead of silently substituting a fallback configuration.
+        /// </para>
+        /// <para>
+        /// Prefer <see cref="Convert(string,OpenccConfig,bool)"/> when possible for stronger typing
+        /// and compile-time discoverability.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="ObjectDisposedException">
+        /// Thrown if this instance has been disposed.
+        /// </exception>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown if <paramref name="config"/> is <c>null</c>.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Thrown if <paramref name="config"/> is not a supported canonical OpenCC configuration name.
+        /// </exception>
         public string Convert(string input, string config, bool punctuation = false)
         {
             if (string.IsNullOrEmpty(input))
                 return string.Empty;
-
             ThrowIfDisposed();
-
-            // 🔹 SINGLE OWNER: parse config via managed extensions
-            if (!OpenccConfigExtensions.TryParseConfig(config, out var configId))
-            {
-                configId = OpenccConfigExtensions.DefaultConfig();
-            }
-
-            // 🔹 canonicalize once
-            var canonical = configId.ToCanonicalName();
-
+            var canonical = OpenccConfigExtensions.Parse(config).ToCanonicalName();
             return ConvertInternal(input, canonical, punctuation);
         }
 
@@ -776,9 +795,6 @@ namespace OpenccFmmsegLib
         /// Thrown if the conversion fails. The exception message contains the
         /// native error returned by <see cref="LastError"/> when available.
         /// </exception>
-        /// <para>
-        /// For a string-returning variant, see <see cref="ConvertCfgMemLen"/>.
-        /// </para>
         public byte[] ConvertCfgMemLenToUtf8Z(string input, int configId, bool punctuation = false)
         {
             ThrowIfDisposed();
@@ -838,9 +854,6 @@ namespace OpenccFmmsegLib
         /// <exception cref="InvalidOperationException">
         /// Thrown if native conversion fails.
         /// </exception>
-        /// <para>
-        /// For a UTF-8 buffer-returning variant, see <see cref="ConvertCfgMemLenToUtf8Z"/>.
-        /// </para>
         public string ConvertCfgMemLen(string input, int configId, bool punctuation = false)
         {
             ThrowIfDisposed();
@@ -909,6 +922,17 @@ namespace OpenccFmmsegLib
         /// Gets the last error message from the native OpenCC library.
         /// </summary>
         /// <returns>The last error message, or an empty string if none.</returns>
+        /// <remarks>
+        /// <para>
+        /// The native last-error slot is shared native state and is not scoped to a specific
+        /// <see cref="OpenccFmmseg"/> instance.
+        /// </para>
+        /// <para>
+        /// In concurrent scenarios, another OpenCC call may overwrite the stored error before this
+        /// method is called. Treat the result as a best-effort diagnostic snapshot rather than as
+        /// thread-local state.
+        /// </para>
+        /// </remarks>
         public static string LastError()
         {
             var cLastError = OpenccFmmsegNative.opencc_last_error();
@@ -1016,3 +1040,4 @@ namespace OpenccFmmsegLib
         }
     }
 }
+

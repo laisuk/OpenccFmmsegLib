@@ -327,7 +327,7 @@ public sealed class OpenccFmmsegTests
             using var opencc = CreateOpencc();
             const int invalidCfg = 9999;
 
-            // --- A) ConvertCfgToUtf8Z: wrapper throws on invalid config
+            // --- (A) ConvertCfgToUtf8Z: wrapper throws on invalid config
 
             InvalidOperationException? ex = null;
 
@@ -361,7 +361,7 @@ public sealed class OpenccFmmsegTests
             Assert.Contains("invalid config", err.ToLowerInvariant());
             Assert.Contains(invalidCfg.ToString(), err);
 
-            // --- B) TryConvertCfgToUtf8: should report required bytes and fail
+            // --- (B) TryConvertCfgToUtf8: should report required bytes and fail
             var empty = Span<byte>.Empty;
             var okQuery = opencc.TryConvertCfgToUtf8(
                 Input,
@@ -456,9 +456,9 @@ public sealed class OpenccFmmsegTests
         {
             using var opencc = new OpenccFmmseg();
 
-            var result = opencc.ConvertCfgMemLen("中国", (int)OpenccConfig.S2T);
+            var result = opencc.ConvertCfgMemLen("大不列颠岛", (int)OpenccConfig.S2T);
 
-            Assert.AreEqual("中國", result);
+            Assert.AreEqual("大不列顛島", result);
         }
 
         [TestMethod]

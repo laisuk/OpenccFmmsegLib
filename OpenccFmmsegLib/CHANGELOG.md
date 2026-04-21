@@ -8,7 +8,14 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [1.3.2] — 2026-04-22
 
-- Update native `opencc-fmmseg-capi` to v0.9.2
+### Changed
+
+- Updated native `opencc-fmmseg-capi` to v0.9.2
+- Tightened the public string-config conversion API: `Convert(string, string, ...)` now validates config names strictly
+  and throws for invalid values instead of silently falling back to the default config
+- Refined public XML documentation for release: clarified exception behavior, documented shared native `LastError()`
+  semantics, and cleaned up IntelliSense output for advanced conversion APIs
+- Refreshed README release-facing docs to match the actual public API and threading/error-reporting behavior
 
 ---
 
