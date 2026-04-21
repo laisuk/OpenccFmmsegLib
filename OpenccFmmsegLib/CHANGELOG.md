@@ -6,24 +6,11 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.3.2] — 2026-04-22
-
-### Changed
-
-- Updated native `opencc-fmmseg-capi` to v0.9.2
-- Tightened the public string-config conversion API: `Convert(string, string, ...)` now validates config names strictly
-  and throws for invalid values instead of silently falling back to the default config
-- Refined public XML documentation for release: clarified exception behavior, documented shared native `LastError()`
-  semantics, and cleaned up IntelliSense output for advanced conversion APIs
-- Refreshed README release-facing docs to match the actual public API and threading/error-reporting behavior
-
----
-
-## [1.3.1] — 2026-03-29
+## [1.3.1] — 2026-04-22
 
 ### ✨ Added
 
-- Added high-performance conversion APIs:
+- Added conversion APIs:
     - `ConvertCfgmemLen(...)` for optimized string conversion using the new buffer-based pipeline.
     - `ConvertCfgMemLenToUtf8Z(...)` for managed UTF-8 output (NUL-terminated).
 - Added `TryConvertCfgToUtf8Into(...)` for caller-provided buffer scenarios (Span-based, allocation-free).
@@ -46,6 +33,12 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - Refined API layering:
     - Clear separation between classic (`ConvertCfg`) and optimized (`MemLenXXX`) conversion paths
 - Improved internal UTF-8 handling to reduce overhead in high-throughput scenarios
+- Updated native `opencc-fmmseg-capi` to v0.9.2
+- Tightened the public string-config conversion API: `Convert(string, string, ...)` now validates config names strictly
+  and throws for invalid values instead of silently falling back to the default config
+- Refined public XML documentation for release: clarified exception behavior, documented shared native `LastError()`
+  semantics, and cleaned up IntelliSense output for advanced conversion APIs
+- Refreshed README release-facing docs to match the actual public API and threading/error-reporting behavior
 
 ### 🧩 Compatibility
 
