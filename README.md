@@ -26,8 +26,12 @@ For Jieba segmentation and keyword extraction, use **OpenccJiebaLib** instead.
 
 ## Supported Conversion Configurations
 
-`s2t`, `t2s`, `s2tw`, `tw2s`, `s2twp`, `tw2sp`, `s2hk`, `hk2s`,
-`t2tw`, `t2twp`, `t2hk`, `tw2t`, `tw2tp`, `hk2t`, `t2jp`, `jp2t`
+`s2t`, `t2s`, `s2tw`, `tw2s`, `s2twp`, `tw2sp`, `s2hk`, `s2hkp`,
+`hk2s`, `hk2sp`, `t2tw`, `t2twp`, `t2hk`, `tw2t`, `tw2tp`, `hk2t`,
+`t2jp`, `jp2t`
+
+The phrase-aware Hong Kong configurations `s2hkp` and `hk2sp` require native
+`opencc-fmmseg-capi` v0.11.0 or later. This package bundles v0.11.1.
 
 ---
 

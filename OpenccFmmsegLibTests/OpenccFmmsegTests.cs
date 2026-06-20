@@ -156,6 +156,14 @@ public sealed class OpenccFmmsegTests
             Assert.IsTrue(ok, "ConfigNameToIdNative should succeed for valid canonical name.");
             Assert.AreEqual(OpenccConfig.S2TWP, config);
 
+            ok = OpenccFmmseg.ConfigNameToIdNative("S2HKP", out config);
+            Assert.IsTrue(ok, "Native v0.11.1 should support s2hkp.");
+            Assert.AreEqual(OpenccConfig.S2HKP, config);
+
+            ok = OpenccFmmseg.ConfigNameToIdNative("hk2sp", out config);
+            Assert.IsTrue(ok, "Native v0.11.1 should support hk2sp.");
+            Assert.AreEqual(OpenccConfig.HK2SP, config);
+
             // whitespace / invalid
             ok = OpenccFmmseg.ConfigNameToIdNative("   ", out config);
             Assert.IsFalse(ok);
@@ -206,6 +214,11 @@ public sealed class OpenccFmmsegTests
                     $"Version component '{part}' must be a non-negative integer."
                 );
             }
+            Assert.IsTrue(
+                Version.TryParse(abiVersion, out var nativeVersion) &&
+                nativeVersion >= new Version(0, 11, 0),
+                $"Native library version {abiVersion} must be 0.11.0 or later."
+            );
         }
     }
 

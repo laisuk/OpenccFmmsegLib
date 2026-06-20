@@ -159,6 +159,15 @@ namespace OpenccFmmsegLibTests
         }
 
         [TestMethod]
+        public void HongKongPhraseConfigs_HaveCanonicalNames_AndParseCaseInsensitively()
+        {
+            Assert.AreEqual("s2hkp", OpenccConfig.S2HKP.ToCanonicalName());
+            Assert.AreEqual("hk2sp", OpenccConfig.HK2SP.ToCanonicalName());
+            Assert.AreEqual(OpenccConfig.S2HKP, OpenccConfigExtensions.Parse("S2HKP"));
+            Assert.AreEqual(OpenccConfig.HK2SP, OpenccConfigExtensions.Parse("Hk2Sp"));
+        }
+
+        [TestMethod]
         public void ToCanonicalName_InvalidEnum_Throws()
         {
             try

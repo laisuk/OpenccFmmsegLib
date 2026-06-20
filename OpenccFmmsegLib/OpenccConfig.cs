@@ -10,6 +10,10 @@ namespace OpenccFmmsegLib
     /// Numeric OpenCC configuration identifiers (opencc_config_t).
     /// These values must match the native enum exactly.
     /// </summary>
+    /// <remarks>
+    /// Includes phrase-aware Hong Kong conversions <see cref="S2HKP"/> and
+    /// <see cref="HK2SP"/>, available with native opencc-fmmseg-capi v0.11.0 or later.
+    /// </remarks>
     // NOTE:
     // Enum member names intentionally follow OpenCC canonical identifiers
     // (S2TW, T2HK, etc.) to preserve cross-language consistency.
@@ -62,7 +66,13 @@ namespace OpenccFmmsegLib
         JP2T = 15,
 
         /// <summary>Traditional Chinese → Japanese Kanji variants</summary>
-        T2JP = 16
+        T2JP = 16,
+
+        /// <summary>Simplified to Traditional (Hong Kong, with phrases)</summary>
+        S2HKP = 17,
+
+        /// <summary>Hong Kong Traditional to Simplified (with phrases)</summary>
+        HK2SP = 18
     }
 
     // ReSharper restore IdentifierTypo
@@ -231,6 +241,18 @@ namespace OpenccFmmsegLib
                         return true;
                     }
 
+                    if (EqualsIgnoreCase(name, "s2hkp"))
+                    {
+                        configId = OpenccConfig.S2HKP;
+                        return true;
+                    }
+
+                    if (EqualsIgnoreCase(name, "hk2sp"))
+                    {
+                        configId = OpenccConfig.HK2SP;
+                        return true;
+                    }
+
                     if (!EqualsIgnoreCase(name, "tw2tp")) return false;
                     configId = OpenccConfig.TW2TP;
                     return true;
@@ -313,6 +335,12 @@ namespace OpenccFmmsegLib
                     return true;
                 case OpenccConfig.T2JP:
                     name = "t2jp";
+                    return true;
+                case OpenccConfig.S2HKP:
+                    name = "s2hkp";
+                    return true;
+                case OpenccConfig.HK2SP:
+                    name = "hk2sp";
                     return true;
                 default:
                     return false;
@@ -422,6 +450,8 @@ namespace OpenccFmmsegLib
                 case OpenccConfig.HK2T: return "hk2t";
                 case OpenccConfig.JP2T: return "jp2t";
                 case OpenccConfig.T2JP: return "t2jp";
+                case OpenccConfig.S2HKP: return "s2hkp";
+                case OpenccConfig.HK2SP: return "hk2sp";
                 default:
                     throw new ArgumentOutOfRangeException(nameof(config), config, "Invalid OpenCC config");
             }
