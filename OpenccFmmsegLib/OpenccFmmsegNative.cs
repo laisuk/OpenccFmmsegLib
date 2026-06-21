@@ -190,14 +190,16 @@ namespace OpenccFmmsegLib
             IntPtr outBuf,
             UIntPtr outCap,
             out UIntPtr outRequired);
-        
+
         /// <summary>
         /// Converts a UTF-8 input buffer using a numeric OpenCC config, writing to a caller-provided buffer.
         /// Uses a size-query pattern: call with out_buf = NULL/out_cap = 0 to get required bytes (incl. '\0').
         /// </summary>
         /// <remarks>
         /// This variant accepts an explicit input length and does NOT require the input to be null-terminated.
-        /// It avoids scanning for a trailing NUL byte and is the preferred API for high-performance scenarios.
+        /// It avoids scanning the input for a trailing NUL byte, but the size-query protocol performs
+        /// conversion once to determine the output size and again to write it. Use this variant only when
+        /// its explicit-length, caller-provided-buffer contract is required, not for better performance.
         /// </remarks>
         /// <param name="opencc">Pointer to a valid native <c>OpenCC</c> instance.</param>
         /// <param name="input">UTF-8 encoded byte array of the input string (not required to be null-terminated).</param>

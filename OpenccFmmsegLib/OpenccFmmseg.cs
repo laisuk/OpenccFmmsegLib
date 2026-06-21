@@ -455,10 +455,16 @@ namespace OpenccFmmsegLib
         /// </summary>
         /// <remarks>
         /// <para>
-        /// This is an advanced, allocation-minimizing API intended for interop and high-throughput scenarios.
-        /// It wraps the native <c>opencc_convert_cfg_mem</c> function and follows a size-query pattern:
-        /// the conversion is first queried to determine the required output size (in bytes), then written
-        /// into <paramref name="destination"/>.
+        /// This is an advanced API for callers that specifically need UTF-8 output in a
+        /// caller-provided managed buffer, such as interop code. For ordinary conversion,
+        /// prefer <see cref="Convert(string,OpenccConfig,bool)"/> or
+        /// <see cref="ConvertCfg(string,OpenccConfig,bool)"/>.
+        /// </para>
+        /// <para>
+        /// This method uses a size-query pattern: native conversion is performed once to
+        /// determine the required output size and again to write into <paramref name="destination"/>.
+        /// This two-pass work can be slower than the normal conversion APIs; use this method for
+        /// its buffer contract, not as a performance optimization.
         /// </para>
         /// <para>
         /// If this method returns <see langword="false"/>, call <see cref="LastError"/> to retrieve a
@@ -568,10 +574,16 @@ namespace OpenccFmmsegLib
         /// </summary>
         /// <remarks>
         /// <para>
-        /// This is an advanced, allocation-minimizing API intended for interop and high-throughput scenarios.
-        /// It wraps the native <c>opencc_convert_cfg_mem_len</c> function and follows a size-query pattern:
-        /// the conversion is first queried to determine the required output size (in bytes), then written
-        /// into <paramref name="destination"/>.
+        /// This is an advanced API for callers that specifically need UTF-8 output in a
+        /// caller-provided managed buffer, such as interop code. For ordinary conversion,
+        /// prefer <see cref="Convert(string,OpenccConfig,bool)"/> or
+        /// <see cref="ConvertCfg(string,OpenccConfig,bool)"/>.
+        /// </para>
+        /// <para>
+        /// This method uses a size-query pattern: native conversion is performed once to
+        /// determine the required output size and again to write into <paramref name="destination"/>.
+        /// This two-pass work can be slower than the normal conversion APIs; use this method for
+        /// its buffer contract, not as a performance optimization.
         /// </para>
         /// <para>
         /// Unlike <see cref="TryConvertCfgToUtf8"/>, this method uses the explicit input-length native path,
@@ -695,18 +707,20 @@ namespace OpenccFmmsegLib
         /// </summary>
         /// <remarks>
         /// <para>
-        /// This method uses the native <c>opencc_convert_cfg_mem</c> API to avoid
-        /// native heap allocation performed by <c>opencc_convert_cfg</c>.
-        /// The output buffer is allocated entirely in managed memory.
+        /// This method allocates the output buffer in managed memory. Use it only when a
+        /// NUL-terminated managed UTF-8 byte array is specifically required. For ordinary
+        /// conversion, prefer <see cref="Convert(string,OpenccConfig,bool)"/> or
+        /// <see cref="ConvertCfg(string,OpenccConfig,bool)"/>.
         /// </para>
         /// <para>
         /// The returned byte array represents a valid UTF-8 C-style string and
         /// always includes the trailing NUL byte (<c>'\0'</c>).
         /// </para>
         /// <para>
-        /// For high-performance scenarios where the caller wishes to reuse buffers,
-        /// use <see cref="TryConvertCfgToUtf8(string,int,bool,System.Span{byte},out int)"/>
-        /// instead.
+        /// The underlying buffer API uses a size query followed by an output pass, so this
+        /// method should not be selected as a performance optimization. If caller-owned buffer
+        /// placement is required, use
+        /// <see cref="TryConvertCfgToUtf8(string,int,bool,System.Span{byte},out int)"/>.
         /// </para>
         /// </remarks>
         /// <param name="input">
@@ -755,14 +769,21 @@ namespace OpenccFmmsegLib
         /// </summary>
         /// <remarks>
         /// <para>
-        /// This is an advanced API intended for interop, native bridging, and other
-        /// performance-sensitive scenarios where the caller wants a managed UTF-8 buffer
-        /// instead of a managed <see cref="string"/>.
+        /// This is an advanced API for interop or native bridging when the caller specifically
+        /// requires a managed, NUL-terminated UTF-8 buffer instead of a managed
+        /// <see cref="string"/>. For ordinary conversion, prefer
+        /// <see cref="Convert(string,OpenccConfig,bool)"/> or
+        /// <see cref="ConvertCfg(string,OpenccConfig,bool)"/>.
         /// </para>
         /// <para>
         /// Internally, this method uses the explicit input-length native buffer API
         /// (<c>opencc_convert_cfg_mem_len</c>) and allocates the result entirely in
         /// managed memory.
+        /// </para>
+        /// <para>
+        /// The underlying buffer API uses a size query followed by an output pass. That
+        /// two-pass work can be slower than the normal conversion APIs, so use this method for
+        /// its output format and ownership behavior, not as a performance optimization.
         /// </para>
         /// <para>
         /// The returned byte array always represents a valid UTF-8 C-style string and
@@ -813,22 +834,21 @@ namespace OpenccFmmsegLib
         }
 
         /// <summary>
-        /// Converts text using a numeric OpenCC configuration and returns the result as a managed string,
-        /// using the optimized buffer-based native API.
+        /// Converts text using a numeric OpenCC configuration and returns the result as a managed string
+        /// through the explicit-length, buffer-based native API.
         /// </summary>
         /// <remarks>
         /// <para>
-        /// This is an advanced API intended for high-performance scenarios. It uses the explicit
-        /// input-length native conversion path (<c>opencc_convert_cfg_mem_len</c>) to avoid
-        /// unnecessary null-terminator scans and native heap allocations.
+        /// This is a specialized API for callers that intentionally need the explicit-length
+        /// buffer path (<c>opencc_convert_cfg_mem_len</c>). For ordinary managed-string
+        /// conversion, prefer <see cref="Convert(string,OpenccConfig,bool)"/> or
+        /// <see cref="ConvertCfg(string,OpenccConfig,bool)"/>.
         /// </para>
         /// <para>
-        /// Compared to <see cref="ConvertCfg(string,int,bool)"/>, this method:
-        /// <list type="bullet">
-        /// <item><description>avoids native string allocation</description></item>
-        /// <item><description>avoids input null-termination</description></item>
-        /// <item><description>avoids output scan for NUL</description></item>
-        /// </list>
+        /// The buffer protocol performs native conversion once to query the required output size
+        /// and again to produce the output. A retry can repeat that work. This overhead can make
+        /// this method slower than the normal conversion APIs despite avoiding input NUL
+        /// termination and native output-string allocation.
         /// </para>
         /// <para>
         /// If conversion fails, this method throws an <see cref="InvalidOperationException"/>
@@ -1040,4 +1060,3 @@ namespace OpenccFmmsegLib
         }
     }
 }
-

@@ -133,16 +133,19 @@ Console.WriteLine(code); // 2 (Simplified Chinese)
   Converts Chinese text using the numeric-config native path with a typed config enum.
 
 * `string ConvertCfgMemLen(string input, int configId, bool punctuation = false)`
-  Converts Chinese text using the optimized explicit-length native buffer pipeline.
+  Uses the specialized explicit-length native buffer pipeline. Prefer `Convert()` or `ConvertCfg()`
+  for ordinary conversion; this API's size-query and output passes add conversion overhead.
 
 * `byte[] ConvertCfgMemLenToUtf8Z(string input, int configId, bool punctuation = false)`
   Returns UTF-8 output including a trailing NUL terminator for interop scenarios.
 
-* `bool TryConvertCfgToUtf8(string input, int configId, bool punctuation, Span<byte> destination, out int requiredBytes)`
-  Writes UTF-8 output into a caller-provided buffer using the native size-query API.
+*
+`bool TryConvertCfgToUtf8(string input, int configId, bool punctuation, Span<byte> destination, out int requiredBytes)`
+Writes UTF-8 output into a caller-provided buffer using the native size-query API.
 
-* `bool TryConvertCfgToUtf8Into(string input, int configId, bool punctuation, Span<byte> destination, out int requiredBytes)`
-  Writes UTF-8 output into a caller-provided buffer using the explicit-length native API.
+*
+`bool TryConvertCfgToUtf8Into(string input, int configId, bool punctuation, Span<byte> destination, out int requiredBytes)`
+Writes UTF-8 output into a caller-provided buffer using the explicit-length native API.
 
 * `int ZhoCheck(string input)`
   Detects whether the input text is Simplified Chinese, Traditional Chinese, or non-Chinese.
