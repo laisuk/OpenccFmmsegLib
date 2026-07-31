@@ -27,11 +27,12 @@ For Jieba segmentation and keyword extraction, use **OpenccJiebaLib** instead.
 ## Supported Conversion Configurations
 
 `s2t`, `t2s`, `s2tw`, `tw2s`, `s2twp`, `tw2sp`, `s2hk`, `s2hkp`,
-`hk2s`, `hk2sp`, `t2tw`, `t2twp`, `t2hk`, `tw2t`, `tw2tp`, `hk2t`,
-`t2jp`, `jp2t`
+`hk2s`, `hk2sp`, `t2tw`, `t2twp`, `t2hk`, `t2hkp`, `tw2t`, `tw2tp`,
+`hk2t`, `hk2tp`, `t2jp`, `jp2t`
 
-The phrase-aware Hong Kong configurations `s2hkp` and `hk2sp` require native
-`opencc-fmmseg-capi` v0.11.0 or later. This package bundles v0.11.1.
+The phrase-aware Hong Kong configurations `s2hkp`, `hk2sp`, `t2hkp`, and
+`hk2tp` require native `opencc-fmmseg-capi` v0.11.5 or later. This package
+bundles v0.11.5.
 
 ---
 
@@ -114,8 +115,11 @@ Console.WriteLine(code); // 2 (Simplified Chinese)
 
 ## Error Handling
 
-* `InvalidOperationException` is thrown if initialization fails or a native error occurs
-* `OpenccFmmseg.LastError()` returns the last native error message
+* `InvalidOperationException` is thrown if initialization fails or a native error occurs.
+* `ObjectDisposedException` is thrown by instance APIs after disposal, including for null or empty input.
+* `OpenccFmmseg.LastError()` returns the last native error for the calling thread.
+  Read it immediately after the failing native call, on the same thread, before an `await`
+  or any other native OpenCC call on that thread.
 
 ---
 
@@ -147,11 +151,16 @@ Writes UTF-8 output into a caller-provided buffer using the native size-query AP
 `bool TryConvertCfgToUtf8Into(string input, int configId, bool punctuation, Span<byte> destination, out int requiredBytes)`
 Writes UTF-8 output into a caller-provided buffer using the explicit-length native API.
 
+  For both `TryConvertCfgToUtf8*` methods, `false` with `requiredBytes > destination.Length`
+  means the buffer is too small; resize and retry. This is the expected result for an
+  empty-buffer size query and is not a native error. For other `false` results, retrieve
+  `LastError()` immediately on the same thread.
+
 * `int ZhoCheck(string input)`
   Detects whether the input text is Simplified Chinese, Traditional Chinese, or non-Chinese.
 
 * `static string LastError()`
-  Returns the last error message reported by the native library's shared error slot.
+  Returns the last error message reported by the native library for the calling thread.
 
 * Implements `IDisposable` for deterministic native resource cleanup.
 
