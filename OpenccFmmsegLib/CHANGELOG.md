@@ -14,6 +14,10 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - Expanded the encoded-config cache to cover all 20 native configuration IDs.
 - Changed native last-error storage to per-calling-thread state, preventing concurrent calls from overwriting one
   another’s diagnostics and making parallel error-handling tests deterministic.
+- Made all conversion overloads consistently throw `ObjectDisposedException` after disposal, including for null or
+  empty input.
+- Clarified caller-buffer API guidance: a too-small destination (including an empty size-query buffer) is an expected
+  resize-and-retry result, while native failures should be followed immediately by `LastError()` on the same thread.
 
 ### Added
 
@@ -23,6 +27,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - Added `OpenccConfig.HK2TP` (`hk2tp`, ID 20) for phrase-aware Hong Kong Traditional-to-Traditional conversion.
 - Added case-insensitive parsing, canonical-name mappings, XML documentation, and round-trip tests for the new
   configurations.
+- Added data-driven disposal regression coverage for all four `Convert` and `ConvertCfg` overloads.
+- Re-enabled parallel execution for last-error tests under the native v0.11.5 per-calling-thread contract.
 
 ---
 
