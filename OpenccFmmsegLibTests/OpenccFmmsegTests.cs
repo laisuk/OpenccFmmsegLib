@@ -48,7 +48,6 @@ public sealed class OpenccFmmsegTests
     }
 
     [TestMethod]
-    [DoNotParallelize]
     public void last_error_Test()
     {
         var result = OpenccFmmseg.LastError();
@@ -81,13 +80,9 @@ public sealed class OpenccFmmsegTests
         Assert.AreEqual("「龍馬精神」", result);
     }
 
-    // NOTE:
-    // opencc_last_error() reflects process-wide shared state.
-    // Under parallel test execution, another test may overwrite the last error
-    // between ConvertCfg(...) and LastError(), causing rare, non-deterministic failures.
-    // This is expected behavior and not a correctness issue.
+    // Native v0.11.5 stores the last error per calling thread, so this test is safe
+    // to run in parallel as long as LastError() is read immediately on the same thread.
     [TestMethod]
-    [DoNotParallelize]
     public void ConvertCfg_InvalidConfig_ReturnsErrorString_AndSetsLastError()
     {
         // Intentionally invalid
@@ -119,6 +114,29 @@ public sealed class OpenccFmmsegTests
         // If allow null inputs in signature, uncomment this:
         var r2 = _opencc.ConvertCfg(null, OpenccConfig.S2T);
         Assert.AreEqual(string.Empty, r2);
+    }
+
+    [DataTestMethod]
+    [DataRow(0, DisplayName = "Convert(string, string, bool)")]
+    [DataRow(1, DisplayName = "Convert(string, OpenccConfig, bool)")]
+    [DataRow(2, DisplayName = "ConvertCfg(string, int, bool)")]
+    [DataRow(3, DisplayName = "ConvertCfg(string, OpenccConfig, bool)")]
+    public void EmptyInput_AfterDispose_ThrowsObjectDisposedException(int overload)
+    {
+        var opencc = new OpenccFmmseg();
+        opencc.Dispose();
+
+        Assert.ThrowsExactly<ObjectDisposedException>(() =>
+        {
+            _ = overload switch
+            {
+                0 => opencc.Convert(string.Empty, "s2t"),
+                1 => opencc.Convert(string.Empty, OpenccConfig.S2T),
+                2 => opencc.ConvertCfg(string.Empty, (int)OpenccConfig.S2T),
+                3 => opencc.ConvertCfg(string.Empty, OpenccConfig.S2T),
+                _ => throw new ArgumentOutOfRangeException(nameof(overload))
+            };
+        });
     }
 
     [TestMethod]
@@ -334,7 +352,6 @@ public sealed class OpenccFmmsegTests
         }
 
         [TestMethod]
-        [DoNotParallelize]
         public void InvalidConfigId_ShouldFail_AndSetLastError()
         {
             using var opencc = CreateOpencc();
@@ -358,17 +375,7 @@ public sealed class OpenccFmmsegTests
             Assert.Contains("invalid config", ex.Message.ToLowerInvariant());
             Assert.Contains(invalidCfg.ToString(), ex.Message);
 
-            // NOTE:
-            // OpenccFmmseg.LastError() is backed by a static/native global error slot.
-            // In parallel MSTest execution, another test invoking OpenCC APIs may
-            // overwrite or clear the last error before we read it here.
-            // If test execution is parallelized, this assertion may intermittently
-            // observe "no_error" even though this test triggered the invalid config.
-            //
-            // If such flakiness appears, consider:
-            //   - Disabling parallelization for this test class, or
-            //   - Serializing tests that depend on LastError(), or
-            //   - Refactoring native LastError to be thread-local instead of global.
+            // Read immediately on the same calling thread as required by the native contract.
             var err = OpenccFmmseg.LastError();
             Assert.IsFalse(string.IsNullOrWhiteSpace(err), "LastError should be set after invalid config failure.");
             Assert.Contains("invalid config", err.ToLowerInvariant());
