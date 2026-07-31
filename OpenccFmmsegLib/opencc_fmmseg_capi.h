@@ -81,8 +81,199 @@ enum {
     /** Simplified → Traditional (Hong Kong, with phrases) */
     OPENCC_CONFIG_S2HKP = 17,
     /** Hong Kong Traditional → Simplified (with phrases) */
-    OPENCC_CONFIG_HK2SP = 18
+    OPENCC_CONFIG_HK2SP = 18,
+    /** Traditional Chinese → Hong Kong variant (with phrases). */
+    OPENCC_CONFIG_T2HKP = 19,
+    /** Hong Kong variant → Traditional Chinese (with phrases). */
+    OPENCC_CONFIG_HK2TP = 20
 };
+
+// ============================================================================
+// Custom dictionary construction API
+// ============================================================================
+
+/**
+ * @typedef opencc_dict_slot_t
+ *
+ * ABI-stable dictionary slot selector used when constructing an OpenCC
+ * instance with custom dictionary entries.
+ *
+ * This type is a 32-bit unsigned integer for consistent representation across
+ * C, C++, C#, Java, Python FFI, and other language bindings.
+ *
+ * Slot values are stable and will never be reordered or reused. New slot
+ * values may be appended in future versions.
+ *
+ * This value is passed by value and requires no allocation or deallocation.
+ *
+ * @since
+ *     Available since v0.11.5.
+ */
+typedef uint32_t opencc_dict_slot_t;
+
+/**
+ * Dictionary slots available for custom dictionary injection.
+ *
+ * Custom entries affect only the selected dictionary slot. Choosing the
+ * correct slot is essential because each OpenCC conversion configuration
+ * consumes a different combination of dictionary slots.
+ *
+ * @since
+ *     Available since v0.11.5.
+ */
+enum {
+    /** Simplified → Traditional character mappings. */
+    OPENCC_DICT_SLOT_ST_CHARACTERS = 1,
+
+    /** Simplified → Traditional phrase mappings. */
+    OPENCC_DICT_SLOT_ST_PHRASES = 2,
+
+    /** Traditional → Simplified character mappings. */
+    OPENCC_DICT_SLOT_TS_CHARACTERS = 3,
+
+    /** Traditional → Simplified phrase mappings. */
+    OPENCC_DICT_SLOT_TS_PHRASES = 4,
+
+    /** Traditional → Taiwan phrase mappings. */
+    OPENCC_DICT_SLOT_TW_PHRASES = 5,
+
+    /** Taiwan → Traditional reverse phrase mappings. */
+    OPENCC_DICT_SLOT_TW_PHRASES_REV = 6,
+
+    /** Traditional → Hong Kong phrase mappings. */
+    OPENCC_DICT_SLOT_HK_PHRASES = 7,
+
+    /** Hong Kong → Traditional reverse phrase mappings. */
+    OPENCC_DICT_SLOT_HK_PHRASES_REV = 8,
+
+    /** Traditional → Taiwan regional variant mappings. */
+    OPENCC_DICT_SLOT_TW_VARIANTS = 9,
+
+    /** Traditional → Taiwan regional phrase variant mappings. */
+    OPENCC_DICT_SLOT_TW_VARIANTS_PHRASES = 10,
+
+    /** Taiwan → Traditional reverse variant mappings. */
+    OPENCC_DICT_SLOT_TW_VARIANTS_REV = 11,
+
+    /** Taiwan → Traditional reverse phrase variant mappings. */
+    OPENCC_DICT_SLOT_TW_VARIANTS_REV_PHRASES = 12,
+
+    /** Traditional → Hong Kong regional variant mappings. */
+    OPENCC_DICT_SLOT_HK_VARIANTS = 13,
+
+    /** Traditional → Hong Kong regional phrase variant mappings. */
+    OPENCC_DICT_SLOT_HK_VARIANTS_PHRASES = 14,
+
+    /** Hong Kong → Traditional reverse variant mappings. */
+    OPENCC_DICT_SLOT_HK_VARIANTS_REV = 15,
+
+    /** Hong Kong → Traditional reverse phrase variant mappings. */
+    OPENCC_DICT_SLOT_HK_VARIANTS_REV_PHRASES = 16,
+
+    /** Japanese Shinjitai character mappings. */
+    OPENCC_DICT_SLOT_JPS_CHARACTERS = 17,
+
+    /** Japanese Shinjitai reverse character mappings. */
+    OPENCC_DICT_SLOT_JPS_CHARACTERS_REV = 18,
+
+    /** Japanese Shinjitai phrase mappings. */
+    OPENCC_DICT_SLOT_JPS_PHRASES = 19,
+
+    /** Simplified → Traditional punctuation mappings. */
+    OPENCC_DICT_SLOT_ST_PUNCTUATIONS = 20,
+
+    /** Traditional → Simplified punctuation mappings. */
+    OPENCC_DICT_SLOT_TS_PUNCTUATIONS = 21
+};
+
+/**
+ * @typedef opencc_custom_dict_mode_t
+ *
+ * ABI-stable custom dictionary merge mode.
+ *
+ * This type is a 32-bit unsigned integer. Mode values are stable and will
+ * never be reordered or reused.
+ *
+ * @since
+ *     Available since v0.11.5.
+ */
+typedef uint32_t opencc_custom_dict_mode_t;
+
+/**
+ * Controls how custom pairs are applied to a dictionary slot.
+ *
+ * @since
+ *     Available since v0.11.5.
+ */
+enum {
+    /**
+     * Merge custom pairs into the built-in dictionary slot.
+     *
+     * Custom values replace existing values for matching source keys.
+     * Existing unrelated mappings remain available.
+     */
+    OPENCC_CUSTOM_DICT_APPEND = 1,
+
+    /**
+     * Clear the selected built-in dictionary slot before inserting the
+     * custom pairs.
+     *
+     * After construction, the selected slot contains only the supplied
+     * custom mappings.
+     */
+    OPENCC_CUSTOM_DICT_OVERRIDE = 2
+};
+
+/**
+ * One custom OpenCC dictionary mapping.
+ *
+ * Both strings must:
+ *
+ * - be valid null-terminated UTF-8 strings;
+ * - remain valid for the duration of `opencc_new_custom()`;
+ * - not contain embedded NUL bytes.
+ *
+ * The constructor copies both strings. The caller retains ownership of the
+ * original memory.
+ *
+ * @since
+ *     Available since v0.11.5.
+ */
+typedef struct opencc_custom_pair {
+    /** Source dictionary key. */
+    const char* source;
+
+    /** Replacement dictionary value. */
+    const char* target;
+} opencc_custom_pair_t;
+
+/**
+ * Custom mappings targeting one OpenCC dictionary slot.
+ *
+ * `pairs` points to a contiguous array containing `pair_count` elements.
+ *
+ * The specification, pair array, and strings are borrowed only for the
+ * duration of `opencc_new_custom()`. The constructor copies all required
+ * data before returning.
+ *
+ * A NULL `pairs` pointer is valid only when `pair_count` is zero.
+ *
+ * @since
+ *     Available since v0.11.5.
+ */
+typedef struct opencc_custom_dict_spec {
+    /** Dictionary slot receiving these custom mappings. */
+    opencc_dict_slot_t slot;
+
+    /** Append or override behavior. */
+    opencc_custom_dict_mode_t mode;
+
+    /** Array of custom source-target mappings. */
+    const opencc_custom_pair_t* pairs;
+
+    /** Number of elements in `pairs`. */
+    size_t pair_count;
+} opencc_custom_dict_spec_t;
 
 // ============================================================================
 // Version / ABI
@@ -113,6 +304,10 @@ const char* opencc_version_string(void);
 /**
  * Creates and initializes a new OpenCC FMMSEG instance.
  *
+ * If embedded dictionary initialization fails, the function preserves its
+ * fallback behavior and records the exact initialization error in the calling
+ * thread's C API last-error state.
+ *
  * @return
  *     A pointer to a new OpenCC instance, or NULL if allocation fails.
  *
@@ -122,12 +317,71 @@ const char* opencc_version_string(void);
 void* opencc_new(void);
 
 /**
- * Frees an instance returned by `opencc_new()`.
+ * Creates an immutable OpenCC FMMSEG instance using the embedded dictionaries
+ * plus optional in-memory custom dictionary mappings.
+ *
+ * Custom mappings are applied during construction only. After this function
+ * returns successfully, the resulting OpenCC instance is fully initialized
+ * and its conversion dictionaries are immutable.
+ *
+ * Each specification targets one dictionary slot and uses either append or
+ * override mode.
+ *
+ * The constructor copies all specifications, pairs, source strings, and
+ * target strings required by the resulting instance. The caller may release
+ * or reuse all input memory immediately after this function returns.
+ *
+ * Empty construction is supported:
+ *
+ *     opencc_new_custom(NULL, 0)
+ *
+ * is equivalent to `opencc_new()`.
+ *
+ * Invalid argument combinations include:
+ *
+ * - `specs == NULL` while `spec_count > 0`;
+ * - an unknown dictionary slot;
+ * - an unknown custom dictionary mode;
+ * - `pairs == NULL` while `pair_count > 0`;
+ * - a NULL source or target string;
+ * - invalid UTF-8 in a source or target string.
+ *
+ * @param specs
+ *     Pointer to a contiguous array of custom dictionary specifications.
+ *     May be NULL only when `spec_count` is zero.
+ *
+ * @param spec_count
+ *     Number of elements in `specs`.
+ *
+ * @return
+ *     A pointer to a fully initialized immutable OpenCC instance on success.
+ *
+ *     Returns NULL on failure. A human-readable error message can then be
+ *     retrieved immediately on the same calling thread using
+ *     `opencc_last_error()`.
+ *
+ * @ownership
+ *     The returned instance must be released using `opencc_delete()`.
+ *
+ *     The caller retains ownership of `specs`, all pair arrays, and all source
+ *     and target strings.
+ *
+ * @since
+ *     Available since v0.11.5.
+ */
+void* opencc_new_custom(
+    const opencc_custom_dict_spec_t* specs,
+    size_t spec_count
+);
+
+/**
+ * Frees an instance returned by an OpenCC constructor.
  *
  * Passing NULL is safe and does nothing.
  *
  * @param instance
- *     A pointer previously returned by `opencc_new()`.
+ *     A pointer previously returned by `opencc_new()` or
+ *     `opencc_new_custom()`.
  */
 void opencc_delete(const void* instance);
 
@@ -198,11 +452,11 @@ void opencc_set_parallel(void* instance, bool is_parallel);
  *
  *     Returns NULL if `instance`, `input`, or `config` is NULL, or if allocation
  *     fails. In those cases the function records a human-readable message for
- *     retrieval via `opencc_last_error()`.
+ *     retrieval on the same calling thread via `opencc_last_error()`.
  *
  *     On UTF-8/config/conversion errors after argument validation, this function
  *     returns an allocated error message string and also stores the same message
- *     internally for retrieval via `opencc_last_error()`.
+ *     for same-thread retrieval via `opencc_last_error()`.
  */
 char* opencc_convert(const void* instance, const char* input, const char* config, bool punctuation);
 
@@ -224,7 +478,7 @@ char* opencc_convert(const void* instance, const char* input, const char* config
  *
  *     If `config` is invalid, this function still returns a newly allocated
  *     error message string in the form `"Invalid config: <value>"`, and also
- *     stores the same message internally for retrieval via `opencc_last_error()`.
+ *     stores it for same-thread retrieval via `opencc_last_error()`.
  *
  *     Returns NULL only if `instance` or `input` is NULL, or if allocation fails.
  *
@@ -254,8 +508,8 @@ char* opencc_convert_cfg(const void* instance, const char* input, opencc_config_
  *     output. The returned string must be freed using `opencc_string_free()`.
  *
  *     Returns NULL if `config` is NULL, or if allocation fails. In those cases
- *     the function records a human-readable message for retrieval via
- *     `opencc_last_error()`.
+ *     the function records a human-readable message for immediate retrieval
+ *     via `opencc_last_error()` on the same calling thread.
  */
 char* opencc_convert_len(
     const void* instance,
@@ -325,7 +579,7 @@ char* opencc_convert_len(
  *     - `out_cap` is too small when `out_buf` is provided
  *
  * Error behavior:
- * - On failure, this function sets `opencc_last_error()` to a human-readable
+ * - On failure, this function sets the calling thread's `opencc_last_error()`
  *   message, including when `out_required` is NULL.
  * - If the caller provides a buffer, the function may also attempt to write an error
  *   message into `out_buf` if the buffer is large enough.
@@ -443,6 +697,9 @@ bool opencc_convert_cfg_mem_len(
  *     - `1` = Traditional Chinese
  *     - `2` = Simplified Chinese
  *     - `-1` = invalid input or NULL pointer
+ *
+ *     On `-1`, retrieve the error immediately on the same calling thread with
+ *     `opencc_last_error()`.
  */
 int opencc_zho_check(const void* instance, const char* input);
 
@@ -468,22 +725,28 @@ void opencc_string_free(char* ptr);
 /**
  * Returns the last error message as a newly allocated null-terminated UTF-8 string.
  *
- * The returned string must be freed using `opencc_error_free()`.
- * If there is no recorded error, this function returns `"No error"`.
+ * Last-error state belongs to the calling thread. Retrieve it on that same
+ * thread immediately after a failed C API call. If the calling thread has no
+ * recorded error, this function returns `"No error"`.
+ *
+ * Every call returns an independently heap-allocated string; it does not expose
+ * internal or thread-local storage. The returned string must be freed using
+ * `opencc_error_free()`.
  *
  * @return
- *     A heap-allocated error message string.
+ *     An independently heap-allocated error message string.
  */
 char* opencc_last_error(void);
 
 /**
- * Clears the internally stored last error message.
+ * Clears the calling thread's last error message.
  *
- * This function resets internal error state only. It does NOT free any memory
- * previously returned by `opencc_last_error()`.
+ * This function affects only the calling thread's C API error state. It does
+ * NOT free any independently allocated string previously returned by
+ * `opencc_last_error()`; those strings still require `opencc_error_free()`.
  *
- * After calling this function, `opencc_last_error()` returns `"No error"`
- * until a new error is recorded.
+ * After calling this function, `opencc_last_error()` returns `"No error"` on
+ * the calling thread until a new error is recorded there.
  *
  * @since
  *     Available since v0.8.4.
@@ -491,7 +754,8 @@ char* opencc_last_error(void);
 void opencc_clear_last_error(void);
 
 /**
- * Frees a string returned by `opencc_last_error()`.
+ * Frees an independently allocated string returned by `opencc_last_error()`.
+ * Every such returned string must be released with this function.
  *
  * Passing NULL is safe and does nothing.
  *

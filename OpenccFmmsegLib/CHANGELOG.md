@@ -10,7 +10,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- Update native `opencc-fmmseg-capi` to v0.11.1
+- Update native `opencc-fmmseg-capi` to v0.11.5
 
 ### Added
 
