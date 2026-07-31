@@ -30,6 +30,12 @@ namespace OpenccFmmsegLibTests
 
             Assert.IsTrue(OpenccConfigExtensions.TryParseConfig("JP2T", out cfg));
             Assert.AreEqual(OpenccConfig.JP2T, cfg);
+
+            Assert.IsTrue(OpenccConfigExtensions.TryParseConfig("T2HKP", out cfg));
+            Assert.AreEqual(OpenccConfig.T2HKP, cfg);
+
+            Assert.IsTrue(OpenccConfigExtensions.TryParseConfig("Hk2Tp", out cfg));
+            Assert.AreEqual(OpenccConfig.HK2TP, cfg);
         }
 
         [TestMethod]
@@ -165,6 +171,10 @@ namespace OpenccFmmsegLibTests
             Assert.AreEqual("hk2sp", OpenccConfig.HK2SP.ToCanonicalName());
             Assert.AreEqual(OpenccConfig.S2HKP, OpenccConfigExtensions.Parse("S2HKP"));
             Assert.AreEqual(OpenccConfig.HK2SP, OpenccConfigExtensions.Parse("Hk2Sp"));
+            Assert.AreEqual("t2hkp", OpenccConfig.T2HKP.ToCanonicalName());
+            Assert.AreEqual("hk2tp", OpenccConfig.HK2TP.ToCanonicalName());
+            Assert.AreEqual(OpenccConfig.T2HKP, OpenccConfigExtensions.Parse("T2HKP"));
+            Assert.AreEqual(OpenccConfig.HK2TP, OpenccConfigExtensions.Parse("Hk2Tp"));
         }
 
         [TestMethod]
