@@ -939,18 +939,25 @@ namespace OpenccFmmsegLib
         }
 
         /// <summary>
-        /// Gets the last error message from the native OpenCC library.
+        /// Gets the last error message recorded by the native OpenCC library for the calling thread.
         /// </summary>
-        /// <returns>The last error message, or an empty string if none.</returns>
+        /// <returns>
+        /// The last error message for the calling thread, <c>"No error"</c> if no error is recorded,
+        /// or an empty string if the native function cannot allocate the returned message.
+        /// </returns>
         /// <remarks>
         /// <para>
-        /// The native last-error slot is shared native state and is not scoped to a specific
-        /// <see cref="OpenccFmmseg"/> instance.
+        /// Native last-error state is scoped to the calling thread, not to a specific
+        /// <see cref="OpenccFmmseg"/> instance. Call this method on the same thread immediately
+        /// after a native operation fails.
         /// </para>
         /// <para>
-        /// In concurrent scenarios, another OpenCC call may overwrite the stored error before this
-        /// method is called. Treat the result as a best-effort diagnostic snapshot rather than as
-        /// thread-local state.
+        /// Calls made on other threads do not overwrite this thread's stored error. A later OpenCC
+        /// call on the same thread may replace or clear it.
+        /// </para>
+        /// <para>
+        /// Each invocation retrieves an independently allocated native string, which this method
+        /// converts to a managed string and releases before returning.
         /// </para>
         /// </remarks>
         public static string LastError()
