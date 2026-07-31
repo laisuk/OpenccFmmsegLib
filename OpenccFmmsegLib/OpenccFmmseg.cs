@@ -160,9 +160,10 @@ namespace OpenccFmmsegLib
         /// </exception>
         public string Convert(string input, string config, bool punctuation = false)
         {
+            ThrowIfDisposed();
+
             if (string.IsNullOrEmpty(input))
                 return string.Empty;
-            ThrowIfDisposed();
             var canonical = OpenccConfigExtensions.Parse(config).ToCanonicalName();
             return ConvertInternal(input, canonical, punctuation);
         }
@@ -198,10 +199,10 @@ namespace OpenccFmmsegLib
         /// </exception>
         public string Convert(string input, OpenccConfig configId, bool punctuation = false)
         {
+            ThrowIfDisposed();
+
             if (string.IsNullOrEmpty(input))
                 return string.Empty;
-
-            ThrowIfDisposed();
 
             // Canonicalize once and forward to the core executor.
             var canonical = configId.ToCanonicalName();
@@ -349,6 +350,7 @@ namespace OpenccFmmsegLib
         [EditorBrowsable(EditorBrowsableState.Never)]
         public string ConvertCfg(string input, int configNum, bool punctuation = false)
         {
+            ThrowIfDisposed();
             return string.IsNullOrEmpty(input) ? string.Empty : ConvertCfgInternal(input, configNum, punctuation);
         }
 
@@ -384,6 +386,7 @@ namespace OpenccFmmsegLib
         /// </exception>
         public string ConvertCfg(string input, OpenccConfig configId, bool punctuation = false)
         {
+            ThrowIfDisposed();
             return string.IsNullOrEmpty(input) ? string.Empty : ConvertCfgInternal(input, (int)configId, punctuation);
         }
 
@@ -467,8 +470,11 @@ namespace OpenccFmmsegLib
         /// its buffer contract, not as a performance optimization.
         /// </para>
         /// <para>
-        /// If this method returns <see langword="false"/>, call <see cref="LastError"/> to retrieve a
-        /// human-readable native error message.
+        /// A <see langword="false"/> result with <paramref name="requiredBytes"/> greater than
+        /// <paramref name="destination"/>'s length means the buffer is too small; resize it and retry.
+        /// This includes the normal empty-buffer size query and is not a native conversion error.
+        /// For any other <see langword="false"/> result, call <see cref="LastError"/> immediately on
+        /// the same thread to retrieve the native diagnostic.
         /// </para>
         /// </remarks>
         /// <param name="input">
@@ -590,8 +596,11 @@ namespace OpenccFmmsegLib
         /// so the input buffer does not need to be null-terminated.
         /// </para>
         /// <para>
-        /// If this method returns <see langword="false"/>, call <see cref="LastError"/> to retrieve a
-        /// human-readable native error message.
+        /// A <see langword="false"/> result with <paramref name="requiredBytes"/> greater than
+        /// <paramref name="destination"/>'s length means the buffer is too small; resize it and retry.
+        /// This includes the normal empty-buffer size query and is not a native conversion error.
+        /// For any other <see langword="false"/> result, call <see cref="LastError"/> immediately on
+        /// the same thread to retrieve the native diagnostic.
         /// </para>
         /// </remarks>
         /// <param name="input">
