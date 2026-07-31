@@ -10,13 +10,16 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- Update native `opencc-fmmseg-capi` to v0.11.5
+- Updated native `opencc-fmmseg-capi` to v0.11.5.
+- Expanded the encoded-config cache to cover all 20 native configuration IDs.
 
 ### Added
 
 - Added `OpenccConfig.S2HKP` (`s2hkp`, ID 17) for phrase-aware Simplified-to-Hong Kong Traditional conversion.
 - Added `OpenccConfig.HK2SP` (`hk2sp`, ID 18) for phrase-aware Hong Kong Traditional-to-Simplified conversion.
-- Added managed parsing, canonical-name mapping, XML documentation, and tests for both new configurations.
+- Added `OpenccConfig.T2HKP` (`t2hkp`, ID 19) for phrase-aware Traditional-to-Hong Kong Traditional conversion.
+- Added `OpenccConfig.HK2TP` (`hk2tp`, ID 20) for phrase-aware Hong Kong Traditional-to-Traditional conversion.
+- Added case-insensitive parsing, canonical-name mappings, XML documentation, and round-trip tests for the new configurations.
 
 ---
 
