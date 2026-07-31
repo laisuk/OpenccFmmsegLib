@@ -19,10 +19,12 @@
         <FileVersion>1.4.0.0</FileVersion>
         <PackageReleaseNotes>v1.4.0
 
-            - Updated opencc-fmmseg-capi to v0.11.1
-            - Added phrase-aware Hong Kong configs s2hkp (ID 17) and hk2sp (ID 18)
-            - Updated managed config parsing, canonical-name mapping, XML documentation, and tests
-            
+            - Updated opencc-fmmseg-capi to v0.11.5
+            - Added phrase-aware Hong Kong configs s2hkp (ID 17), hk2sp (ID 18), t2hkp (ID 19), and hk2tp (ID 20)
+            - Expanded the encoded-config cache to support all 20 configuration IDs
+            - Updated case-insensitive parsing, canonical-name mappings, XML documentation, and round-trip tests
+            - Adopted per-calling-thread native last-error state, improving diagnostics and making parallel error-handling tests deterministic
+
         </PackageReleaseNotes>
         <Version>1.4.0</Version>
         <!-- Generate the XML doc file alongside the DLL -->
