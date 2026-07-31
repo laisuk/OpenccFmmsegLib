@@ -130,11 +130,15 @@ namespace OpenccFmmsegLib
         internal static extern void opencc_string_free(IntPtr str);
 
         /// <summary>
-        /// Retrieves the last error message recorded by the native library.
+        /// Retrieves an independently allocated copy of the last error message recorded
+        /// by the native library for the calling thread.
         /// </summary>
+        /// <remarks>
+        /// This function must be called on the same thread as the failed native operation.
+        /// If that thread has no recorded error, the returned string contains <c>"No error"</c>.
+        /// </remarks>
         /// <returns>
-        /// Pointer to a UTF-8 null-terminated error string owned by the native side,
-        /// or <see cref="IntPtr.Zero"/> if no error is present.
+        /// Pointer to a newly allocated UTF-8 null-terminated error string.
         /// The caller must release it using <see cref="opencc_error_free"/>.
         /// </returns>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
