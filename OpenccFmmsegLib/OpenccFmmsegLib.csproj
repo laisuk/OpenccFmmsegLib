@@ -24,6 +24,9 @@
             - Expanded the encoded-config cache to support all 20 configuration IDs
             - Updated case-insensitive parsing, canonical-name mappings, XML documentation, and round-trip tests
             - Adopted per-calling-thread native last-error state, improving diagnostics and making parallel error-handling tests deterministic
+            - Made disposed-instance behavior consistent for all Convert and ConvertCfg overloads, including empty input
+            - Clarified caller-buffer resize/retry behavior and same-thread LastError usage
+            - Re-enabled parallel last-error tests and added disposal regression coverage
 
         </PackageReleaseNotes>
         <Version>1.4.0</Version>
