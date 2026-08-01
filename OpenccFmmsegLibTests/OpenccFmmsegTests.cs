@@ -116,7 +116,7 @@ public sealed class OpenccFmmsegTests
         Assert.AreEqual(string.Empty, r2);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0, DisplayName = "Convert(string, string, bool)")]
     [DataRow(1, DisplayName = "Convert(string, OpenccConfig, bool)")]
     [DataRow(2, DisplayName = "ConvertCfg(string, int, bool)")]

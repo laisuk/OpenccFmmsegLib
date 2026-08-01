@@ -14,8 +14,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - Expanded the encoded-config cache to cover all 20 native configuration IDs.
 - Changed native last-error storage to per-calling-thread state, preventing concurrent calls from overwriting one
   another’s diagnostics and making parallel error-handling tests deterministic.
-- Made all conversion overloads consistently throw `ObjectDisposedException` after disposal, including for null or
-  empty input.
+- Made all conversion overloads consistently throw `ObjectDisposedException` after disposal, including for null or empty
+  input.
 - Clarified caller-buffer API guidance: a too-small destination (including an empty size-query buffer) is an expected
   resize-and-retry result, while native failures should be followed immediately by `LastError()` on the same thread.
 

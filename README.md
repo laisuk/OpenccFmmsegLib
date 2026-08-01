@@ -1,16 +1,16 @@
 # OpenccFmmsegLib
 
 [![NuGet](https://img.shields.io/nuget/v/OpenccFmmsegLib.svg)](https://www.nuget.org/packages/OpenccFmmsegLib/)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/OpenccFmmsegLib.svg?label=downloads\&color=blue)](https://www.nuget.org/packages/OpenccFmmsegLib/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/OpenccFmmsegLib.svg?label=downloads&color=blue)](https://www.nuget.org/packages/OpenccFmmsegLib/)
 [![License](https://img.shields.io/github/license/laisuk/OpenccFmmsegLib.svg)](https://github.com/laisuk/OpenccFmmsegLib/blob/master/LICENSE)
 
 A .NET Standard 2.0 library providing a managed C# wrapper for the Rust-based
-[opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg) C API (OpenCC-compatible),
-enabling high-performance Chinese text conversion (Simplified / Traditional)
+[opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg) C API (OpenCC-compatible), enabling high-performance Chinese
+text conversion (Simplified / Traditional)
 in .NET applications.
 
-This library focuses **only on OpenCC-style conversion**.
-For Jieba segmentation and keyword extraction, use **OpenccJiebaLib** instead.
+This library focuses **only on OpenCC-style conversion**. For Jieba segmentation and keyword extraction, use
+**OpenccJiebaLib** instead.
 
 ---
 
@@ -31,8 +31,7 @@ For Jieba segmentation and keyword extraction, use **OpenccJiebaLib** instead.
 `hk2t`, `hk2tp`, `t2jp`, `jp2t`
 
 The phrase-aware Hong Kong configurations `s2hkp`, `hk2sp`, `t2hkp`, and
-`hk2tp` require native `opencc-fmmseg-capi` v0.11.5 or later. This package
-bundles v0.11.5.
+`hk2tp` require native `opencc-fmmseg-capi` v0.11.5 or later. This package bundles v0.11.5.
 
 ---
 
@@ -40,8 +39,7 @@ bundles v0.11.5.
 
 ### Prerequisites
 
-* .NET Standard 2.0 or higher
-  (.NET Framework, .NET Core / 5+ / 6+, Mono, Xamarin, etc.)
+* .NET Standard 2.0 or higher (.NET Framework, .NET Core / 5+ / 6+, Mono, Xamarin, etc.)
 * .NET 6.0 or later recommended
 * Native **`opencc_fmmseg_capi`** library available at runtime
 
@@ -75,8 +73,7 @@ No manual copying is required when using NuGet.
 
 ### Option 2 — Project Reference / Custom Native Builds
 
-If you use a project reference or a custom native build, place the native
-library using the same layout as NuGet:
+If you use a project reference or a custom native build, place the native library using the same layout as NuGet:
 
 ```
 runtimes/<RID>/native/
@@ -117,8 +114,8 @@ Console.WriteLine(code); // 2 (Simplified Chinese)
 
 * `InvalidOperationException` is thrown if initialization fails or a native error occurs.
 * `ObjectDisposedException` is thrown by instance APIs after disposal, including for null or empty input.
-* `OpenccFmmseg.LastError()` returns the last native error for the calling thread.
-  Read it immediately after the failing native call, on the same thread, before an `await`
+* `OpenccFmmseg.LastError()` returns the last native error for the calling thread. Read it immediately after the failing
+  native call, on the same thread, before an `await`
   or any other native OpenCC call on that thread.
 
 ---
@@ -144,17 +141,19 @@ Console.WriteLine(code); // 2 (Simplified Chinese)
   Returns UTF-8 output including a trailing NUL terminator for interop scenarios.
 
 *
+
 `bool TryConvertCfgToUtf8(string input, int configId, bool punctuation, Span<byte> destination, out int requiredBytes)`
 Writes UTF-8 output into a caller-provided buffer using the native size-query API.
 
 *
+
 `bool TryConvertCfgToUtf8Into(string input, int configId, bool punctuation, Span<byte> destination, out int requiredBytes)`
 Writes UTF-8 output into a caller-provided buffer using the explicit-length native API.
 
-  For both `TryConvertCfgToUtf8*` methods, `false` with `requiredBytes > destination.Length`
-  means the buffer is too small; resize and retry. This is the expected result for an
-  empty-buffer size query and is not a native error. For other `false` results, retrieve
-  `LastError()` immediately on the same thread.
+For both `TryConvertCfgToUtf8*` methods, `false` with `requiredBytes > destination.Length`
+means the buffer is too small; resize and retry. This is the expected result for an empty-buffer size query and is not a
+native error. For other `false` results, retrieve
+`LastError()` immediately on the same thread.
 
 * `int ZhoCheck(string input)`
   Detects whether the input text is Simplified Chinese, Traditional Chinese, or non-Chinese.
@@ -209,8 +208,7 @@ xattr -dr com.apple.quarantine libopencc_fmmseg_capi.dylib
 
 ## License
 
-MIT License.
-See [LICENSE](https://github.com/laisuk/OpenccFmmsegLib/blob/master/LICENSE).
+MIT License. See [LICENSE](https://github.com/laisuk/OpenccFmmsegLib/blob/master/LICENSE).
 
 ---
 
