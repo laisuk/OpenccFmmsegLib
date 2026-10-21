@@ -8,8 +8,30 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [1.5.0] - Unreleased
 
+### Added
+
+- Added Small Seal Script configurations `S2SEAL` (21), `T2SEAL` (22), `SEAL2S` (23), and `SEAL2T` (24),
+  with case-insensitive parsing, canonical names, and native mapping/conversion regression coverage.
+- Added instance methods `NormalizeCompat`, `NormalizeCompatExtended`, and `DeTofu`, backed by the native
+  instance-based C API (v0.12.0 or later). Existing conversion behavior remains unchanged.
+- Added `DeTofuLevel` with explicit native `uint32_t` values 0–7 for inclusive ExtB–ExtI thresholds.
+- Added `shared pooled UTF-8 marshalling`, immediate thread-local error checks (including allocated native error strings),
+  and guaranteed native-output/input-buffer cleanup for the new text operations.
+- Added normalization golden cases, all DeTofu thresholds, Unicode preservation, disposal, repeated-call,
+  custom dictionary compatibility, and native error ownership regression coverage.
+- Added immutable custom dictionaries through `CustomDictSpec`, `DictSlot`, `CustomDictMode`, and a new
+  `OpenccFmmseg(IEnumerable<CustomDictSpec>)` constructor backed by native `opencc_new_custom`.
+- Exposed all 25 native slot IDs, including Seal slots requiring native v0.13.0 or later, supported by all bundled
+  runtimes.
+- Added explicit UTF-8 marshaling with pinned, count-based native arrays and cleanup on initialization failure.
+- Added validation, initialization, Unicode, ABI layout, isolation, disposal, and conversion compatibility regression
+  tests.
+
 ### Changed
 
+- Expanded the encoded-config cache to cover all 24 managed/native configuration IDs.
+- Updated all bundled native `opencc-fmmseg-capi` runtimes to v0.13.1: Windows x64, Linux x64/ARM64, and macOS
+  x64/ARM64.
 - Refactored the managed caller-buffer conversion path to use native `opencc_convert_cfg_mem_len` as the single
   explicit-length implementation, avoiding unnecessary NUL termination and native input-length scanning.
 - Deprecated the legacy `TryConvertCfgToUtf8Into`, `ConvertCfgMemLenToUtf8Z`, and `ConvertCfgMemLen` managed APIs.

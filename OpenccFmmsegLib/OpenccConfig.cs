@@ -14,6 +14,7 @@ namespace OpenccFmmsegLib
     /// Includes the phrase-aware Hong Kong conversion pairs
     /// <see cref="S2HKP"/>/<see cref="HK2SP"/> and
     /// <see cref="T2HKP"/>/<see cref="HK2TP"/>.
+    /// Small Seal Script configurations require native v0.13.0 or later, supported by all bundled v0.13.1 runtimes.
     /// </remarks>
     // NOTE:
     // Enum member names intentionally follow OpenCC canonical identifiers
@@ -79,7 +80,19 @@ namespace OpenccFmmsegLib
         T2HKP = 19,
 
         /// <summary>Hong Kong variant → Traditional Chinese (with phrases)</summary>
-        HK2TP = 20
+        HK2TP = 20,
+
+        /// <summary>Simplified Chinese → Small Seal Script. Requires native v0.13.0 or later.</summary>
+        S2SEAL = 21,
+
+        /// <summary>Traditional Chinese → Small Seal Script. Requires native v0.13.0 or later.</summary>
+        T2SEAL = 22,
+
+        /// <summary>Small Seal Script → Simplified Chinese. Requires native v0.13.0 or later.</summary>
+        SEAL2S = 23,
+
+        /// <summary>Small Seal Script → Traditional Chinese. Requires native v0.13.0 or later.</summary>
+        SEAL2T = 24
     }
 
     // ReSharper restore IdentifierTypo
@@ -276,6 +289,29 @@ namespace OpenccFmmsegLib
                     configId = OpenccConfig.TW2TP;
                     return true;
 
+                case 6:
+                    if (EqualsIgnoreCase(name, "s2seal"))
+                    {
+                        configId = OpenccConfig.S2SEAL;
+                        return true;
+                    }
+
+                    if (EqualsIgnoreCase(name, "t2seal"))
+                    {
+                        configId = OpenccConfig.T2SEAL;
+                        return true;
+                    }
+
+                    if (EqualsIgnoreCase(name, "seal2s"))
+                    {
+                        configId = OpenccConfig.SEAL2S;
+                        return true;
+                    }
+
+                    if (!EqualsIgnoreCase(name, "seal2t")) return false;
+                    configId = OpenccConfig.SEAL2T;
+                    return true;
+
                 default:
                     return false;
             }
@@ -366,6 +402,18 @@ namespace OpenccFmmsegLib
                     return true;
                 case OpenccConfig.HK2TP:
                     name = "hk2tp";
+                    return true;
+                case OpenccConfig.S2SEAL:
+                    name = "s2seal";
+                    return true;
+                case OpenccConfig.T2SEAL:
+                    name = "t2seal";
+                    return true;
+                case OpenccConfig.SEAL2S:
+                    name = "seal2s";
+                    return true;
+                case OpenccConfig.SEAL2T:
+                    name = "seal2t";
                     return true;
                 default:
                     return false;
@@ -479,6 +527,10 @@ namespace OpenccFmmsegLib
                 case OpenccConfig.HK2SP: return "hk2sp";
                 case OpenccConfig.T2HKP: return "t2hkp";
                 case OpenccConfig.HK2TP: return "hk2tp";
+                case OpenccConfig.S2SEAL: return "s2seal";
+                case OpenccConfig.T2SEAL: return "t2seal";
+                case OpenccConfig.SEAL2S: return "seal2s";
+                case OpenccConfig.SEAL2T: return "seal2t";
                 default:
                     throw new ArgumentOutOfRangeException(nameof(config), config, "Invalid OpenCC config");
             }

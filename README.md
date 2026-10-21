@@ -21,6 +21,8 @@ This library focuses **only on OpenCC-style conversion**. For Jieba segmentation
 * Fast FMM-based segmentation engine under the hood (native Rust)
 * Lightweight API with explicit native error-reporting semantics
 * Safe native resource management via `IDisposable`
+* Immutable custom dictionaries with typed slots and append/override modes
+* Optional native compatibility normalization and DeTofu display fallback
 
 ---
 
@@ -28,10 +30,23 @@ This library focuses **only on OpenCC-style conversion**. For Jieba segmentation
 
 `s2t`, `t2s`, `s2tw`, `tw2s`, `s2twp`, `tw2sp`, `s2hk`, `s2hkp`,
 `hk2s`, `hk2sp`, `t2tw`, `t2twp`, `t2hk`, `t2hkp`, `tw2t`, `tw2tp`,
-`hk2t`, `hk2tp`, `t2jp`, `jp2t`
+`hk2t`, `hk2tp`, `t2jp`, `jp2t`, `s2seal`, `t2seal`, `seal2s`, `seal2t`
 
 The phrase-aware Hong Kong configurations `s2hkp`, `hk2sp`, `t2hkp`, and
-`hk2tp` require native `opencc-fmmseg-capi` v0.11.5 or later. This package bundles v0.11.5.
+`hk2tp` require native `opencc-fmmseg-capi` v0.11.5 or later.
+All bundled native runtimes use `opencc-fmmseg-capi` v0.13.1.
+
+The Small Seal Script configurations require native v0.13.0 or later and support both typed and
+case-insensitive string APIs: `OpenccConfig.S2SEAL` (21), `T2SEAL` (22), `SEAL2S` (23), and `SEAL2T` (24).
+For example:
+
+```csharp
+using var converter = new OpenccFmmseg();
+string seal = converter.Convert("小篆", OpenccConfig.T2SEAL);
+string traditional = converter.Convert(seal, "seal2t");
+```
+
+Displaying the resulting Small Seal Script characters requires a font that supports them.
 
 ---
 
@@ -110,6 +125,125 @@ Console.WriteLine(code); // 2 (Simplified Chinese)
 
 ---
 
+## Custom Dictionaries
+
+Create a converter with one or more in-memory dictionaries. All existing conversion methods
+use the custom mappings; configuration remains selected per conversion call.
+
+```csharp
+using System.Collections.Generic;
+using OpenccFmmsegLib;
+
+var customDictionarySpecifications = new[]
+{
+    new CustomDictSpec(
+        DictSlot.STPhrases,
+        CustomDictMode.Append,
+        new Dictionary<string, string>
+        {
+            ["汉字转换"] = "自訂轉換",
+            ["自定义词语"] = "自訂詞語"
+        }),
+    new CustomDictSpec(
+        DictSlot.TSPhrases,
+        CustomDictMode.Append,
+        new Dictionary<string, string> { ["自訂詞語"] = "自定义词语" })
+};
+
+using var converter = new OpenccFmmseg(customDictionarySpecifications);
+string result = converter.Convert("汉字转换", "s2t"); // 自訂轉換
+string reverse = converter.Convert("自訂詞語", OpenccConfig.T2S); // 自定义词语
+```
+
+`Append` merges entries into the selected built-in slot, replacing mappings for matching source keys.
+`Override` clears that entire slot before adding the supplied entries; other slots retain their mappings.
+For example, overriding `STCharacters` with only `汉 → 訂` makes `汉龙` convert to `訂龙` under `s2t`.
+Use append when you want to preserve the remaining built-in mappings.
+
+Select a slot used by your conversion pipeline: `STCharacters`/`STPhrases` for `s2t`,
+`TSCharacters`/`TSPhrases` for `t2s`, or the appropriate Taiwan, Hong Kong, Japanese, or punctuation slot
+for regional conversions. Punctuation mappings require `punctuation: true`.
+Slot IDs are explicit native identifiers, separate from `OpenccConfig` IDs.
+
+Specifications and their entries are applied in input order. Later duplicate keys win; a later override
+clears mappings added earlier to that slot. An ordered `IEnumerable<KeyValuePair<string, string>>`
+can express duplicate keys. `CustomDictSpec` copies entries into a read-only snapshot. The converter
+copies the dictionary data into native ownership during construction, so caller collection changes
+and later garbage collection cannot affect it. Dictionaries cannot be mutated after initialization,
+and separate converter instances have independent custom mappings.
+
+An empty specification collection is equivalent to the default constructor. An empty entry collection
+leaves an appended slot unchanged or clears an overridden slot. Null collections, null specifications,
+null source/target strings, embedded NUL characters, invalid UTF-16, and undefined slot/mode values
+are rejected. Entries are literal mappings, without file-format parsing or target-token splitting.
+Empty source/target strings are forwarded according to native dictionary semantics.
+
+Custom construction requires native `opencc_new_custom` (v0.11.5 or later).
+All 25 slots in the checked-in header are exposed and supported by every bundled v0.13.1 runtime:
+Windows x64, Linux x64/ARM64, and macOS x64/ARM64. The four `Seal*` slots require native v0.13.0 or
+later. If you supply an older custom native library, requesting an unsupported slot throws
+`InvalidOperationException` with the native error. Both typed and string conversion APIs support all 24
+configurations, including Seal configuration IDs 21–24.
+
+Temporary UTF-8 buffers are pinned only during initialization and released on success or failure.
+Custom construction adds no work to conversion hot paths and introduces no new dependencies.
+
+---
+
+## Compatibility Normalization and DeTofu
+
+These optional operations require native v0.12.0 or later, supported by all bundled v0.13.1 runtimes.
+They are **instance methods** because each native C function requires a live OpenCC instance.
+The recommended processing order is normalization, Chinese conversion, then display fallback:
+
+```csharp
+using OpenccFmmsegLib;
+
+string input = "金庸小說";
+using var converter = new OpenccFmmseg();
+
+string normalized = converter.NormalizeCompatExtended(input);
+string converted = converter.Convert(normalized, "s2t");
+string result = converter.DeTofu(converted, DeTofuLevel.ExtB);
+```
+
+`NormalizeCompat(text)` normalizes mapped CJK Compatibility Ideographs, including supplementary-plane
+characters: `金庸` becomes `金庸`, and `天龍八部書` becomes `天龍八部書`.
+`NormalizeCompatExtended(text)` additionally applies the native curated Unicode compatibility mappings;
+for example, `聼竒羙䂖甁噐` becomes `聽奇美石瓶器`, while the basic method leaves that text unchanged.
+These methods use the native tables and are not general-purpose NFC, NFD, NFKC, or NFKD normalization.
+Characters without applicable mappings remain unchanged.
+
+`DeTofu(text, level)` uses the native built-in fallback table to improve display compatibility when a font
+or reader cannot render rare CJK characters. For example, `骖𬴂` becomes `骖騑` at `DeTofuLevel.ExtB`.
+It is a display fallback, not a linguistic conversion, and leaves characters without applicable mappings
+unchanged, including unmapped supplementary characters. It does not insert question marks or replacement glyphs.
+
+| Level  | Native value | Eligible mappings (inclusive) |
+|--------|--------------|-------------------------------|
+| `ExtB` | 0            | Extension B through I         |
+| `ExtC` | 1            | Extension C through I         |
+| `ExtD` | 2            | Extension D through I         |
+| `ExtE` | 3            | Extension E through I         |
+| `ExtF` | 4            | Extension F through I         |
+| `ExtG` | 5            | Extension G through I         |
+| `ExtH` | 6            | Extension H through I         |
+| `ExtI` | 7            | Extension I only              |
+
+The selected threshold determines eligibility; replacement still requires an entry in the built-in table.
+`ExtB` is the broadest threshold. There is no disabled level; omit the DeTofu call to disable fallback.
+
+All three methods return an empty string for null or empty input on a live converter. Undefined DeTofu
+levels throw `ArgumentOutOfRangeException`, including for empty input. Embedded NUL characters are rejected
+with `ArgumentException` to prevent native string truncation. Calls after disposal throw `ObjectDisposedException`,
+including for null or empty input. Native failures throw `InvalidOperationException` with the native diagnostic;
+allocated native output and rented input buffers are released on both success and failure.
+
+Normalization and DeTofu are explicitly opt-in. Normal `Convert()` behavior and custom dictionary configuration
+remain unchanged; none of these operations runs automatically during conversion.
+
+---
+
 ## Error Handling
 
 * `InvalidOperationException` is thrown if initialization fails or a native error occurs.
@@ -123,6 +257,15 @@ Console.WriteLine(code); // 2 (Simplified Chinese)
 ## Public API Overview
 
 ### `OpenccFmmseg`
+
+* `string NormalizeCompat(string text)`
+  Normalizes mapped CJK Compatibility Ideographs using the native table.
+
+* `string NormalizeCompatExtended(string text)`
+  Adds the native curated Unicode compatibility mappings to basic normalization.
+
+* `string DeTofu(string text, DeTofuLevel level)`
+  Applies optional native display fallback at an inclusive CJK extension threshold.
 
 * `string Convert(string input, string config, bool punctuation = false)`
   Converts Chinese text using the specified canonical OpenCC configuration name and throws for invalid names.

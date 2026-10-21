@@ -76,6 +76,39 @@ namespace OpenccFmmsegLib
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr opencc_new();
 
+        // Layout follows opencc_fmmseg_capi.h; size_t is pointer-sized on every RID.
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct CustomPair
+        {
+            internal IntPtr Source;
+            internal IntPtr Target;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct CustomDictionarySpecification
+        {
+            internal uint Slot;
+            internal uint Mode;
+            internal IntPtr Pairs;
+            internal UIntPtr PairCount;
+        }
+
+        /// <summary>Creates an instance, copying all borrowed custom dictionary data before returning.</summary>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern IntPtr opencc_new_custom(IntPtr specs, UIntPtr specCount);
+
+        /// <summary>Normalizes CJK Compatibility Ideographs. Free the allocated result with opencc_string_free.</summary>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern IntPtr opencc_normalize_compat(IntPtr instance, byte[] input);
+
+        /// <summary>Applies extended compatibility normalization. Free the allocated result with opencc_string_free.</summary>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern IntPtr opencc_normalize_compat_extended(IntPtr instance, byte[] input);
+
+        /// <summary>Applies built-in display fallback. Level is uint32_t; free the allocated result with opencc_string_free.</summary>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern IntPtr opencc_detofu(IntPtr instance, byte[] input, uint level);
+
         /// <summary>
         /// Deletes a previously created <c>OpenCC</c> instance and releases its resources.
         /// </summary>
@@ -120,7 +153,7 @@ namespace OpenccFmmsegLib
         internal static extern int opencc_zho_check(IntPtr opencc, byte[] input);
 
         /// <summary>
-        /// Frees a UTF-8 string allocated by <see cref="opencc_convert"/>.
+        /// Frees a UTF-8 string allocated by a native conversion, normalization, or DeTofu operation.
         /// </summary>
         /// <param name="str">
         /// Pointer to the unmanaged string previously returned by <see cref="opencc_convert"/>.

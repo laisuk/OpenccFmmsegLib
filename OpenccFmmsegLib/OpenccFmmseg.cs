@@ -17,7 +17,7 @@ namespace OpenccFmmsegLib
     {
         // Pre-encoded config bytes for common configurations
         private static readonly Dictionary<string, byte[]> EncodedConfigCache =
-            new Dictionary<string, byte[]>(capacity: 20, comparer: StringComparer.Ordinal);
+            new Dictionary<string, byte[]>(capacity: 24, comparer: StringComparer.Ordinal);
 
         private IntPtr _openccInstance;
         private bool _disposed;
@@ -46,6 +46,145 @@ namespace OpenccFmmsegLib
             if (_openccInstance != IntPtr.Zero) return;
             var lastError = LastError();
             throw new InvalidOperationException($"Failed to initialize OpenCC. {lastError}".Trim());
+        }
+
+        /// <summary>Creates an immutable converter using built-in dictionaries plus custom mappings.</summary>
+        /// <param name="customDictionarySpecifications">
+        /// Ordered specifications to apply at initialization. An empty collection uses the built-in dictionaries.
+        /// </param>
+        /// <remarks>
+        /// Requires native <c>opencc_new_custom</c> (v0.11.5 or later); Seal slots require v0.13.0 or later.
+        /// All bundled native runtimes are v0.13.1 and support all 25 dictionary slots.
+        /// The native constructor copies all mappings before returning. Later changes to caller collections
+        /// do not affect this instance. All existing conversion APIs use the resulting dictionaries.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">The specifications collection is null.</exception>
+        /// <exception cref="ArgumentException">The collection contains a null specification.</exception>
+        /// <exception cref="InvalidOperationException">Native initialization fails, including for an unsupported slot.</exception>
+        /// <example>
+        /// <code>
+        /// var specifications = new[] {
+        ///     new CustomDictSpec(DictSlot.STPhrases, CustomDictMode.Append,
+        ///         new Dictionary&lt;string, string&gt; { ["汉字转换"] = "自訂轉換" })
+        /// };
+        /// using (var converter = new OpenccFmmseg(specifications))
+        /// {
+        ///     string result = converter.Convert("汉字转换", "s2t"); // 自訂轉換
+        /// }
+        /// </code>
+        /// </example>
+        public OpenccFmmseg(IEnumerable<CustomDictSpec> customDictionarySpecifications)
+        {
+            using (var buffers = new CustomDictionaryMarshaller(customDictionarySpecifications))
+                _openccInstance = buffers.CreateInstance();
+        }
+
+        /// <summary>Normalizes mapped CJK Compatibility Ideographs using the native built-in table.</summary>
+        /// <param name="text">Input text; null or empty returns an empty string.</param>
+        /// <returns>Normalized text, preserving characters without a native compatibility mapping.</returns>
+        /// <remarks>
+        /// Requires native v0.12.0 or later and a live converter instance. This optional preprocessing step
+        /// is not general-purpose NFC, NFD, NFKC, or NFKD normalization. It does not run automatically in Convert.
+        /// Use <see cref="NormalizeCompatExtended"/> to also apply the curated extended compatibility mappings.
+        /// </remarks>
+        /// <exception cref="ObjectDisposedException">The converter has been disposed, including for empty input.</exception>
+        /// <exception cref="ArgumentException">The input contains an embedded NUL character.</exception>
+        /// <exception cref="InvalidOperationException">The native operation fails.</exception>
+        public string NormalizeCompat(string text)
+        {
+            return TransformText(text, TextTransform.NormalizeCompat);
+        }
+
+        /// <summary>Normalizes CJK Compatibility Ideographs and applies native curated Unicode compatibility mappings.</summary>
+        /// <param name="text">Input text; null or empty returns an empty string.</param>
+        /// <returns>Normalized text, preserving characters without an applicable native mapping.</returns>
+        /// <remarks>
+        /// Requires native v0.12.0 or later and a live converter instance. This optional preprocessing step
+        /// extends <see cref="NormalizeCompat"/>; it is not general-purpose NFC, NFD, NFKC, or NFKD normalization.
+        /// Recommended order: normalize, Convert, then optionally <see cref="DeTofu"/> for display fallback.
+        /// Existing conversion methods do not enable normalization automatically.
+        /// </remarks>
+        /// <exception cref="ObjectDisposedException">The converter has been disposed, including for empty input.</exception>
+        /// <exception cref="ArgumentException">The input contains an embedded NUL character.</exception>
+        /// <exception cref="InvalidOperationException">The native operation fails.</exception>
+        public string NormalizeCompatExtended(string text)
+        {
+            return TransformText(text, TextTransform.NormalizeCompatExtended);
+        }
+
+        /// <summary>Applies native built-in fallback mappings for display compatibility at an inclusive extension threshold.</summary>
+        /// <param name="text">Input text; null or empty returns an empty string for a valid level.</param>
+        /// <param name="level">The earliest CJK extension eligible for replacement, including supported later extensions.</param>
+        /// <returns>Display fallback text. Characters without an applicable mapping remain unchanged.</returns>
+        /// <remarks>
+        /// Requires native v0.12.0 or later and a live converter instance. DeTofu is an optional display fallback,
+        /// not Chinese linguistic conversion. Apply it after Convert when the target font lacks rare characters.
+        /// <see cref="DeTofuLevel.ExtB"/> is the broadest threshold. No question marks or replacement glyphs
+        /// are substituted for unmapped characters. Existing conversion behavior remains unchanged.
+        /// </remarks>
+        /// <exception cref="ObjectDisposedException">The converter has been disposed, including for empty input.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">The level is undefined, including for null or empty input.</exception>
+        /// <exception cref="ArgumentException">The input contains an embedded NUL character.</exception>
+        /// <exception cref="InvalidOperationException">The native operation fails.</exception>
+        public string DeTofu(string text, DeTofuLevel level)
+        {
+            return TransformText(text, TextTransform.DeTofu, level);
+        }
+
+        private enum TextTransform
+        {
+            NormalizeCompat,
+            NormalizeCompatExtended,
+            DeTofu
+        }
+
+        private string TransformText(string text, TextTransform operation, DeTofuLevel level = DeTofuLevel.ExtB)
+        {
+            ThrowIfDisposed();
+            if (operation == TextTransform.DeTofu && !Enum.IsDefined(typeof(DeTofuLevel), level))
+                throw new ArgumentOutOfRangeException(nameof(level), level, "Unknown DeTofu threshold.");
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+            if (text.IndexOf('\0') >= 0)
+                throw new ArgumentException("Input must not contain embedded NUL characters.", nameof(text));
+
+            byte[] inputBuffer = null;
+            var output = IntPtr.Zero;
+            try
+            {
+                Utf8Z.Rent(text, out inputBuffer, out _);
+                switch (operation)
+                {
+                    case TextTransform.NormalizeCompat:
+                        output = OpenccFmmsegNative.opencc_normalize_compat(_openccInstance, inputBuffer);
+                        break;
+                    case TextTransform.NormalizeCompatExtended:
+                        output = OpenccFmmsegNative.opencc_normalize_compat_extended(_openccInstance, inputBuffer);
+                        break;
+                    case TextTransform.DeTofu:
+                        output = OpenccFmmsegNative.opencc_detofu(_openccInstance, inputBuffer, (uint)level);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(operation), operation, null);
+                }
+
+                // transform_core clears the thread-local error on success, but may return allocated
+                // error text on failure. Check immediately, even when the returned pointer is nonzero.
+                var lastError = LastError();
+                if (output == IntPtr.Zero || (lastError.Length != 0 && lastError != "No error"))
+                    throw new InvalidOperationException($"{operation} failed. {lastError}".Trim());
+                return Utf8Z.ToStringZ(output);
+            }
+            finally
+            {
+                try
+                {
+                    if (output != IntPtr.Zero) OpenccFmmsegNative.opencc_string_free(output);
+                }
+                finally
+                {
+                    Utf8Z.Return(inputBuffer);
+                }
+            }
         }
 
         /// <summary>

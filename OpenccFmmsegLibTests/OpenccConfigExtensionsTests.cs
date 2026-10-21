@@ -178,6 +178,48 @@ namespace OpenccFmmsegLibTests
         }
 
         [TestMethod]
+        [DataRow(OpenccConfig.S2SEAL, 21, "s2seal")]
+        [DataRow(OpenccConfig.T2SEAL, 22, "t2seal")]
+        [DataRow(OpenccConfig.SEAL2S, 23, "seal2s")]
+        [DataRow(OpenccConfig.SEAL2T, 24, "seal2t")]
+        public void SealConfigsMatchNativeIdsAndNames(OpenccConfig config, int nativeId, string name)
+        {
+            Assert.AreEqual(nativeId, (int)config);
+            Assert.AreEqual(name, config.ToCanonicalName());
+            Assert.IsTrue(OpenccConfigExtensions.TryGetConfigName(config, out var canonical));
+            Assert.AreEqual(name, canonical);
+            Assert.AreEqual(config, OpenccConfigExtensions.Parse(name.ToUpperInvariant()));
+            Assert.IsTrue(OpenccConfigExtensions.IsValidConfig(name));
+            Assert.IsFalse(OpenccConfigExtensions.TryParseConfig(name + " ", out _));
+            Assert.IsFalse(OpenccConfigExtensions.TryParseConfig(" " + name, out _));
+            Assert.IsTrue(OpenccFmmseg.ConfigNameToIdNative(name.ToUpperInvariant(), out var nativeConfig));
+            Assert.AreEqual(config, nativeConfig);
+            Assert.IsTrue(OpenccFmmseg.ConfigIdToNameNative(config, out var nativeName));
+            Assert.AreEqual(name, nativeName);
+        }
+
+        [TestMethod]
+        [DataRow(OpenccConfig.S2SEAL, "你好，小篆国际编码18", "你𿒛，𽌠𽴖𾇓𿭖𿛛碼18")]
+        [DataRow(OpenccConfig.T2SEAL, "你好，小篆國際編碼18", "你𿒛，𽌠𽴖𾇓𿭖𿛛碼18")]
+        [DataRow(OpenccConfig.SEAL2S, "你𿒛，𽌠𽴖𾇓𿭖𿛛碼18", "你好，小篆国际编码18")]
+        [DataRow(OpenccConfig.SEAL2T, "你𿒛，𽌠𽴖𾇓𿭖𿛛碼18", "你好，小篆國際編碼18")]
+        public void SealConversionsMatchNativeGoldenCasesAcrossManagedPaths(OpenccConfig config, string input, string expected)
+        {
+            // Golden cases from native tests/test_opencc_seal.rs.
+            using var converter = new OpenccFmmseg();
+            Assert.AreEqual(expected, converter.Convert(input, config));
+            Assert.AreEqual(expected, converter.Convert(input, config.ToCanonicalName().ToUpperInvariant()));
+            Assert.AreEqual(expected, converter.ConvertCfg(input, config));
+            Assert.AreEqual(expected, converter.ConvertCfg(input, (int)config));
+            var utf8 = converter.ConvertCfgToUtf8Z(input, (int)config);
+            Assert.AreEqual(expected, System.Text.Encoding.UTF8.GetString(utf8, 0, utf8.Length - 1));
+            var destination = new byte[System.Text.Encoding.UTF8.GetByteCount(expected) + 1];
+            Assert.IsTrue(converter.TryConvertCfgToUtf8(input, (int)config, false, destination, out var required));
+            Assert.AreEqual(destination.Length, required);
+            Assert.AreEqual(expected, System.Text.Encoding.UTF8.GetString(destination, 0, required - 1));
+        }
+
+        [TestMethod]
         public void ToCanonicalName_InvalidEnum_Throws()
         {
             try

@@ -17,7 +17,16 @@
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
         <AssemblyVersion>1.4.0.0</AssemblyVersion>
         <FileVersion>1.4.0.0</FileVersion>
-        <PackageReleaseNotes>v1.4.0
+        <PackageReleaseNotes>Unreleased
+
+            - Added typed and string-based Small Seal Script configs s2seal, t2seal, seal2s, and seal2t (IDs 21-24)
+            - Added NormalizeCompat, NormalizeCompatExtended, and DeTofu instance APIs with typed inclusive thresholds
+            - Added native text transformation regression coverage and optional processing-order examples
+            - Added immutable custom dictionary construction with typed slots and append/override modes
+            - Added safe UTF-8 marshalling and custom dictionary regression coverage
+            - Updated all bundled native runtimes to v0.13.1, supporting all 25 dictionary slots including Seal slots
+
+            v1.4.0
 
             - Updated opencc-fmmseg-capi to v0.11.5
             - Added phrase-aware Hong Kong configs s2hkp (ID 17), hk2sp (ID 18), t2hkp (ID 19), and hk2tp (ID 20)
