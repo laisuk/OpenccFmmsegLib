@@ -15,30 +15,65 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-        <AssemblyVersion>1.4.0.0</AssemblyVersion>
-        <FileVersion>1.4.0.0</FileVersion>
-        <PackageReleaseNotes>Unreleased
+        <AssemblyVersion>1.5.0.0</AssemblyVersion>
+        <FileVersion>1.5.0.0</FileVersion>
+        <PackageReleaseNotes>v1.5.0
 
-            - Added typed and string-based Small Seal Script configs s2seal, t2seal, seal2s, and seal2t (IDs 21-24)
-            - Added NormalizeCompat, NormalizeCompatExtended, and DeTofu instance APIs with typed inclusive thresholds
-            - Added native text transformation regression coverage and optional processing-order examples
-            - Added immutable custom dictionary construction with typed slots and append/override modes
-            - Added safe UTF-8 marshalling and custom dictionary regression coverage
-            - Updated all bundled native runtimes to v0.13.1, supporting all 25 dictionary slots including Seal slots
+            New Features:
+            - Added four Small Seal Script conversion configurations: s2seal, t2seal, seal2s, and seal2t (IDs 21-24).
+            - Added Small Seal Script support to both typed OpenccConfig and string-based conversion APIs.
+            - Added CustomDictSpec, DictSlot, and CustomDictMode for strongly typed custom dictionary configuration.
+            - Added a new OpenccFmmseg constructor accepting multiple ordered custom dictionary specifications.
+            - Added Append and Override modes for extending or replacing individual native dictionary slots.
+            - Added support for all 25 native dictionary slots, including four Small Seal Script slots.
+            - Added NormalizeCompat() for standard CJK Compatibility Ideograph normalization.
+            - Added NormalizeCompatExtended() for extended CJK compatibility normalization.
+            - Added DeTofu() with a strongly typed DeTofuLevel enum and inclusive fallback thresholds.
+            - Exposed normalization and DeTofu as instance methods using the existing native converter.
 
-            v1.4.0
+            Native Interop and Memory Safety:
+            - Added P/Invoke bindings for native custom dictionary initialization, normalization, and DeTofu.
+            - Implemented CustomDictionaryMarshaller with safe UTF-8 encoding and pinned managed buffers.
+            - Added sequential native structure layouts with pointer-sized array counts.
+            - Added deterministic cleanup of pinned dictionary buffers on success and failure.
+            - Added validation for dictionary slots, modes, null entries, embedded NUL characters, and invalid UTF-16.
+            - Preserved native error messages when custom dictionary initialization fails.
+            - Reused existing UTF-8 marshalling and native string cleanup infrastructure.
+            - Preserved native converter ownership and disposal behavior.
 
-            - Updated opencc-fmmseg-capi to v0.11.5
-            - Added phrase-aware Hong Kong configs s2hkp (ID 17), hk2sp (ID 18), t2hkp (ID 19), and hk2tp (ID 20)
-            - Expanded the encoded-config cache to support all 20 configuration IDs
-            - Updated case-insensitive parsing, canonical-name mappings, XML documentation, and round-trip tests
-            - Adopted per-calling-thread native last-error state, improving diagnostics and making parallel error-handling tests deterministic
-            - Made disposed-instance behavior consistent for all Convert and ConvertCfg overloads, including empty input
-            - Clarified caller-buffer resize/retry behavior and same-thread LastError usage
-            - Re-enabled parallel last-error tests and added disposal regression coverage
+            Unicode and Text Processing:
+            - Added native-backed standard and extended CJK compatibility normalization.
+            - Added configurable DeTofu fallback for supported CJK Unicode extensions.
+            - Preserved unmapped characters according to native transformation semantics.
+            - Supported supplementary-plane Unicode characters in normalization and fallback operations.
+            - Documented the optional Normalize -&gt; Convert -&gt; DeTofu processing pipeline.
+            - Kept normalization and DeTofu explicitly opt-in without changing existing conversion behavior.
+
+            Native Runtime Updates:
+            - Updated all bundled native opencc_fmmseg_capi runtimes to v0.13.1.
+            - Enabled native support for all 25 dictionary slots, including Small Seal Script slots.
+            - Aligned bundled native libraries with the new custom dictionary and Unicode transformation APIs.
+
+            Testing and Validation:
+            - Added 32 custom dictionary regression tests covering Append, Override, validation, and native failures.
+            - Added 28 additional regression tests for normalization, DeTofu, and Unicode behavior.
+            - Added coverage for native error propagation, buffer cleanup, and recovery after initialization failures.
+            - Added tests for supplementary Unicode characters, fallback levels, and invalid inputs.
+            - Resolved ReSharper disposable lifetime warnings in custom dictionary tests.
+            - Passed all 101 tests in Windows x64 Release configuration.
+            - Preserved netstandard2.0 compatibility.
+            - Linux, macOS, and ARM64 execution have not been independently tested locally.
+
+            Documentation and Compatibility:
+            - Expanded XML documentation for all new public APIs and enum members.
+            - Added README examples for custom dictionaries, Unicode normalization, and DeTofu.
+            - Updated release documentation with native version requirements and usage guidance.
+            - Preserved existing constructors, conversion overloads, and public API behavior.
+            - Avoided additional overhead in existing conversion hot paths.
+            - Maintained backward compatibility with existing managed consumers.
 
         </PackageReleaseNotes>
-        <Version>1.4.0</Version>
+        <Version>1.5.0</Version>
         <!-- Generate the XML doc file alongside the DLL -->
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <!-- (Optional) don’t warn about undocumented public members -->
