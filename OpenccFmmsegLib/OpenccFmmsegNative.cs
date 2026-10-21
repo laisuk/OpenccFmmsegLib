@@ -184,6 +184,7 @@ namespace OpenccFmmsegLib
         /// <param name="outCap">Output buffer capacity in bytes.</param>
         /// <param name="outRequired">Receives required bytes INCLUDING trailing '\0' (always written on return).</param>
         /// <returns>true on success (including size-query), false on failure.</returns>
+        [Obsolete("Deprecated native compatibility entry point. Use opencc_convert_cfg_mem_len instead.")]
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]
         internal static extern bool opencc_convert_cfg_mem(

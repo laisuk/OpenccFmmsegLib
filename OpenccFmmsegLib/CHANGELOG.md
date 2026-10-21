@@ -6,6 +6,23 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.5.0] - Unreleased
+
+### Changed
+
+- Refactored the managed caller-buffer conversion path to use native `opencc_convert_cfg_mem_len` as the single
+  explicit-length implementation, avoiding unnecessary NUL termination and native input-length scanning.
+- Deprecated the legacy `TryConvertCfgToUtf8Into`, `ConvertCfgMemLenToUtf8Z`, and `ConvertCfgMemLen` managed APIs.
+  Existing callers remain source-compatible through forwarding implementations while the simpler
+  `TryConvertCfgToUtf8`, `ConvertCfgToUtf8Z`, and `ConvertCfg` APIs are preferred.
+- Deprecated the `opencc_convert_cfg_mem` P/Invoke binding in favor of `opencc_convert_cfg_mem_len` for
+  caller-provided buffer conversion.
+- Simplified conversion tests to exercise the canonical managed APIs instead of native implementation details, while
+  retaining dedicated compatibility coverage for deprecated forwarding APIs.
+- Removed tests that depended on the former `ConvertCfgMemLen` stack-buffer and pooled-buffer implementation details.
+
+---
+
 ## [1.4.0] - 2026-08-01
 
 ### Changed

@@ -459,181 +459,17 @@ namespace OpenccFmmsegLib
         /// <remarks>
         /// <para>
         /// This is an advanced API for callers that specifically need UTF-8 output in a
-        /// caller-provided managed buffer, such as interop code. For ordinary conversion,
-        /// prefer <see cref="Convert(string,OpenccConfig,bool)"/> or
-        /// <see cref="ConvertCfg(string,OpenccConfig,bool)"/>.
+        /// caller-provided managed buffer. For ordinary conversion, prefer
+        /// <see cref="Convert(string,OpenccConfig,bool)"/> or <see cref="ConvertCfg(string,OpenccConfig,bool)"/>.
         /// </para>
         /// <para>
-        /// This method uses a size-query pattern: native conversion is performed once to
-        /// determine the required output size and again to write into <paramref name="destination"/>.
-        /// This two-pass work can be slower than the normal conversion APIs; use this method for
-        /// its buffer contract, not as a performance optimization.
-        /// </para>
-        /// <para>
-        /// A <see langword="false"/> result with <paramref name="requiredBytes"/> greater than
-        /// <paramref name="destination"/>'s length means the buffer is too small; resize it and retry.
-        /// This includes the normal empty-buffer size query and is not a native conversion error.
-        /// For any other <see langword="false"/> result, call <see cref="LastError"/> immediately on
-        /// the same thread to retrieve the native diagnostic.
+        /// The implementation uses the explicit input-length native API
+        /// (<c>opencc_convert_cfg_mem_len</c>), so the UTF-8 input buffer does not require a trailing NUL byte.
+        /// The size-query protocol performs native conversion once to determine the required output size and
+        /// again to write the result; use this method for its buffer contract, not as a performance optimization.
         /// </para>
         /// </remarks>
-        /// <param name="input">
-        /// Input text as a managed .NET <see cref="string"/> (UTF-16).
-        /// If <paramref name="input"/> is <see langword="null"/> or empty, the result is an empty UTF-8 string
-        /// (a single NUL byte).
-        /// </param>
-        /// <param name="configId">
-        /// Numeric OpenCC configuration identifier (for example <c>OPENCC_CONFIG_S2TWP</c>).
-        /// </param>
-        /// <param name="punctuation">
-        /// Whether to convert punctuation (some configurations may ignore this flag).
-        /// </param>
-        /// <param name="destination">
-        /// Destination buffer that receives the UTF-8 output including the trailing NUL byte.
-        /// Provide a buffer of at least <paramref name="requiredBytes"/> bytes.
-        /// </param>
-        /// <param name="requiredBytes">
-        /// Receives the required buffer size in bytes, including the trailing NUL byte.
-        /// This value is set even when the method returns <see langword="false"/>.
-        /// For <see langword="null"/> or empty input, this will be 1.
-        /// </param>
-        /// <returns>
-        /// <see langword="true"/> if the conversion succeeded (including the empty-string case);
-        /// otherwise <see langword="false"/>.
-        /// </returns>
-        /// <exception cref="ObjectDisposedException">
-        /// Thrown if this instance has been disposed.
-        /// </exception>
-        /// <exception cref="OverflowException">
-        /// Thrown if the required buffer size exceeds <see cref="int.MaxValue"/>.
-        /// </exception>
         public unsafe bool TryConvertCfgToUtf8(
-            string input,
-            int configId,
-            bool punctuation,
-            Span<byte> destination,
-            out int requiredBytes)
-        {
-            ThrowIfDisposed();
-
-            if (string.IsNullOrEmpty(input))
-            {
-                requiredBytes = 1;
-                if (destination.Length < 1) return false;
-                destination[0] = 0;
-                return true;
-            }
-
-            var inputByteCount = Encoding.UTF8.GetByteCount(input);
-            byte[] inputBuffer = null;
-
-            try
-            {
-                inputBuffer = ArrayPool<byte>.Shared.Rent(inputByteCount + 1);
-                var written = Encoding.UTF8.GetBytes(input, 0, input.Length, inputBuffer, 0);
-                inputBuffer[written] = 0;
-
-                // size query
-                var okQuery = OpenccFmmsegNative.opencc_convert_cfg_mem(
-                    _openccInstance,
-                    inputBuffer,
-                    configId,
-                    punctuation,
-                    IntPtr.Zero,
-                    (UIntPtr)0,
-                    out var required);
-
-                requiredBytes = ToInt32Checked(required);
-
-                if (!okQuery)
-                    return false;
-
-                if (destination.Length < requiredBytes)
-                    return false;
-
-                fixed (byte* dstPtr = destination)
-                {
-                    var ok = OpenccFmmsegNative.opencc_convert_cfg_mem(
-                        _openccInstance,
-                        inputBuffer,
-                        configId,
-                        punctuation,
-                        (IntPtr)dstPtr,
-                        (UIntPtr)destination.Length,
-                        out var required2);
-
-                    requiredBytes = ToInt32Checked(required2);
-
-                    return ok;
-                }
-            }
-            finally
-            {
-                if (inputBuffer != null)
-                    ArrayPool<byte>.Shared.Return(inputBuffer);
-            }
-        }
-
-        /// <summary>
-        /// Converts text using a numeric OpenCC configuration into a caller-provided UTF-8 buffer,
-        /// using the explicit input-length native API.
-        /// </summary>
-        /// <remarks>
-        /// <para>
-        /// This is an advanced API for callers that specifically need UTF-8 output in a
-        /// caller-provided managed buffer, such as interop code. For ordinary conversion,
-        /// prefer <see cref="Convert(string,OpenccConfig,bool)"/> or
-        /// <see cref="ConvertCfg(string,OpenccConfig,bool)"/>.
-        /// </para>
-        /// <para>
-        /// This method uses a size-query pattern: native conversion is performed once to
-        /// determine the required output size and again to write into <paramref name="destination"/>.
-        /// This two-pass work can be slower than the normal conversion APIs; use this method for
-        /// its buffer contract, not as a performance optimization.
-        /// </para>
-        /// <para>
-        /// Unlike <see cref="TryConvertCfgToUtf8"/>, this method uses the explicit input-length native path,
-        /// so the input buffer does not need to be null-terminated.
-        /// </para>
-        /// <para>
-        /// A <see langword="false"/> result with <paramref name="requiredBytes"/> greater than
-        /// <paramref name="destination"/>'s length means the buffer is too small; resize it and retry.
-        /// This includes the normal empty-buffer size query and is not a native conversion error.
-        /// For any other <see langword="false"/> result, call <see cref="LastError"/> immediately on
-        /// the same thread to retrieve the native diagnostic.
-        /// </para>
-        /// </remarks>
-        /// <param name="input">
-        /// Input text as a managed .NET <see cref="string"/> (UTF-16).
-        /// If <paramref name="input"/> is <see langword="null"/> or empty, the result is an empty UTF-8 string
-        /// (a single NUL byte).
-        /// </param>
-        /// <param name="configId">
-        /// Numeric OpenCC configuration identifier (for example <c>OPENCC_CONFIG_S2TWP</c>).
-        /// </param>
-        /// <param name="punctuation">
-        /// Whether to convert punctuation (some configurations may ignore this flag).
-        /// </param>
-        /// <param name="destination">
-        /// Destination buffer that receives the UTF-8 output including the trailing NUL byte.
-        /// Provide a buffer of at least <paramref name="requiredBytes"/> bytes.
-        /// </param>
-        /// <param name="requiredBytes">
-        /// Receives the required buffer size in bytes, including the trailing NUL byte.
-        /// This value is set even when the method returns <see langword="false"/>.
-        /// For <see langword="null"/> or empty input, this will be 1.
-        /// </param>
-        /// <returns>
-        /// <see langword="true"/> if the conversion succeeded (including the empty-string case);
-        /// otherwise <see langword="false"/>.
-        /// </returns>
-        /// <exception cref="ObjectDisposedException">
-        /// Thrown if this instance has been disposed.
-        /// </exception>
-        /// <exception cref="OverflowException">
-        /// Thrown if the required buffer size exceeds <see cref="int.MaxValue"/>.
-        /// </exception>
-        public unsafe bool TryConvertCfgToUtf8Into(
             string input,
             int configId,
             bool punctuation,
@@ -660,7 +496,6 @@ namespace OpenccFmmsegLib
                 inputBuffer = ArrayPool<byte>.Shared.Rent(inputByteCount);
                 var written = Encoding.UTF8.GetBytes(input, 0, input.Length, inputBuffer, 0);
 
-                // size query
                 var okQuery = OpenccFmmsegNative.opencc_convert_cfg_mem_len(
                     _openccInstance,
                     inputBuffer,
@@ -673,10 +508,7 @@ namespace OpenccFmmsegLib
 
                 requiredBytes = ToInt32Checked(required);
 
-                if (!okQuery)
-                    return false;
-
-                if (destination.Length < requiredBytes)
+                if (!okQuery || destination.Length < requiredBytes)
                     return false;
 
                 fixed (byte* dstPtr = destination)
@@ -700,6 +532,26 @@ namespace OpenccFmmsegLib
                 if (inputBuffer != null)
                     ArrayPool<byte>.Shared.Return(inputBuffer);
             }
+        }
+
+        /// <summary>
+        /// Legacy name for <see cref="TryConvertCfgToUtf8"/>.
+        /// </summary>
+        /// <remarks>
+        /// Deprecated because the explicit-length native implementation is now the standard implementation detail
+        /// of <see cref="TryConvertCfgToUtf8"/> and should not be exposed in the managed API name.
+        /// </remarks>
+        [Obsolete(
+            "Use TryConvertCfgToUtf8 instead. The managed API now uses the explicit-length native path internally.")]
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public bool TryConvertCfgToUtf8Into(
+            string input,
+            int configId,
+            bool punctuation,
+            Span<byte> destination,
+            out int requiredBytes)
+        {
+            return TryConvertCfgToUtf8(input, configId, punctuation, destination, out requiredBytes);
         }
 
         private static int ToInt32Checked(UIntPtr value)
@@ -726,7 +578,7 @@ namespace OpenccFmmsegLib
         /// always includes the trailing NUL byte (<c>'\0'</c>).
         /// </para>
         /// <para>
-        /// The underlying buffer API uses a size query followed by an output pass, so this
+        /// The underlying explicit-length buffer API uses a size query followed by an output pass, so this
         /// method should not be selected as a performance optimization. If caller-owned buffer
         /// placement is required, use
         /// <see cref="TryConvertCfgToUtf8(string,int,bool,System.Span{byte},out int)"/>.
@@ -825,21 +677,12 @@ namespace OpenccFmmsegLib
         /// Thrown if the conversion fails. The exception message contains the
         /// native error returned by <see cref="LastError"/> when available.
         /// </exception>
+        [Obsolete(
+            "Use ConvertCfgToUtf8Z instead. The managed API now uses the explicit-length native path internally.")]
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public byte[] ConvertCfgMemLenToUtf8Z(string input, int configId, bool punctuation = false)
         {
-            ThrowIfDisposed();
-
-            var dummy = Span<byte>.Empty;
-            _ = TryConvertCfgToUtf8Into(input, configId, punctuation, dummy, out var requiredBytes);
-
-            var buffer = new byte[requiredBytes];
-
-            if (TryConvertCfgToUtf8Into(input, configId, punctuation, buffer, out _))
-                return buffer;
-
-            var err = LastError();
-            throw new InvalidOperationException(
-                string.IsNullOrWhiteSpace(err) ? "OpenccFmmseg conversion failed." : err);
+            return ConvertCfgToUtf8Z(input, configId, punctuation);
         }
 
         /// <summary>
@@ -883,6 +726,9 @@ namespace OpenccFmmsegLib
         /// <exception cref="InvalidOperationException">
         /// Thrown if native conversion fails.
         /// </exception>
+        [Obsolete(
+            "Use ConvertCfg instead. MemLen is a native implementation detail and should not be exposed in the managed API name.")]
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public string ConvertCfgMemLen(string input, int configId, bool punctuation = false)
         {
             ThrowIfDisposed();
@@ -893,7 +739,7 @@ namespace OpenccFmmsegLib
             // First: try stack buffer (fast path)
             Span<byte> stackBuffer = stackalloc byte[1024];
 
-            if (TryConvertCfgToUtf8Into(input, configId, punctuation, stackBuffer, out var requiredBytes))
+            if (TryConvertCfgToUtf8(input, configId, punctuation, stackBuffer, out var requiredBytes))
             {
                 return requiredBytes <= 1
                     ? string.Empty
@@ -909,7 +755,7 @@ namespace OpenccFmmsegLib
             {
                 var buffer = rented.AsSpan(0, requiredBytes);
 
-                if (!TryConvertCfgToUtf8Into(input, configId, punctuation, buffer, out requiredBytes))
+                if (!TryConvertCfgToUtf8(input, configId, punctuation, buffer, out requiredBytes))
                     throw new InvalidOperationException(LastError());
 
                 return requiredBytes <= 1

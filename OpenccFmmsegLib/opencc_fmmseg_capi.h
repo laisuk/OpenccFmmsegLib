@@ -85,7 +85,16 @@ enum {
     /** Traditional Chinese → Hong Kong variant (with phrases). */
     OPENCC_CONFIG_T2HKP = 19,
     /** Hong Kong variant → Traditional Chinese (with phrases). */
-    OPENCC_CONFIG_HK2TP = 20
+    OPENCC_CONFIG_HK2TP = 20,
+
+    /** Simplified Chinese → Small Seal Script. @since v0.13.0 */
+    OPENCC_CONFIG_S2SEAL = 21,
+    /** Traditional Chinese → Small Seal Script. @since v0.13.0 */
+    OPENCC_CONFIG_T2SEAL = 22,
+    /** Small Seal Script → Simplified Chinese. @since v0.13.0 */
+    OPENCC_CONFIG_SEAL2S = 23,
+    /** Small Seal Script → Traditional Chinese. @since v0.13.0 */
+    OPENCC_CONFIG_SEAL2T = 24,
 };
 
 // ============================================================================
@@ -183,7 +192,19 @@ enum {
     OPENCC_DICT_SLOT_ST_PUNCTUATIONS = 20,
 
     /** Traditional → Simplified punctuation mappings. */
-    OPENCC_DICT_SLOT_TS_PUNCTUATIONS = 21
+    OPENCC_DICT_SLOT_TS_PUNCTUATIONS = 21,
+
+    /** Small Seal Script → Traditional character mappings. @since v0.13.0 */
+    OPENCC_DICT_SLOT_SEAL_CHARACTERS = 22,
+
+    /** Traditional → Small Seal Script reverse character mappings. @since v0.13.0 */
+    OPENCC_DICT_SLOT_SEAL_CHARACTERS_REV = 23,
+
+    /** Traditional → Small Seal Script same-character variant mappings. @since v0.13.0 */
+    OPENCC_DICT_SLOT_SEAL_VARIANTS = 24,
+
+    /** Small Seal Script → Traditional reverse variant mappings. @since v0.13.0 */
+    OPENCC_DICT_SLOT_SEAL_VARIANTS_REV = 25
 };
 
 /**
@@ -274,6 +295,56 @@ typedef struct opencc_custom_dict_spec {
     /** Number of elements in `pairs`. */
     size_t pair_count;
 } opencc_custom_dict_spec_t;
+
+/**
+ * @typedef opencc_detofu_level_t
+ *
+ * ABI-stable DeTofu threshold level.
+ *
+ * This type is a 32-bit unsigned integer. Level values are stable and will
+ * never be reordered or reused.
+ *
+ * @since
+ *     Available since v0.12.0.
+ */
+typedef uint32_t opencc_detofu_level_t;
+
+/**
+ * DeTofu fallback threshold.
+ *
+ * The selected level is inclusive: the selected CJK extension and all
+ * supported later extensions are eligible for replacement.
+ *
+ * `OPENCC_DETOFU_EXT_B` is the broadest level and covers ExtB through ExtI.
+ *
+ * @since
+ *     Available since v0.12.0.
+ */
+enum {
+    /** Replace ExtB and all supported later extension mappings. */
+    OPENCC_DETOFU_EXT_B = 0,
+
+    /** Replace ExtC and all supported later extension mappings. */
+    OPENCC_DETOFU_EXT_C = 1,
+
+    /** Replace ExtD and all supported later extension mappings. */
+    OPENCC_DETOFU_EXT_D = 2,
+
+    /** Replace ExtE and all supported later extension mappings. */
+    OPENCC_DETOFU_EXT_E = 3,
+
+    /** Replace ExtF and all supported later extension mappings. */
+    OPENCC_DETOFU_EXT_F = 4,
+
+    /** Replace ExtG and all supported later extension mappings. */
+    OPENCC_DETOFU_EXT_G = 5,
+
+    /** Replace ExtH and all supported later extension mappings. */
+    OPENCC_DETOFU_EXT_H = 6,
+
+    /** Replace ExtI mappings only. */
+    OPENCC_DETOFU_EXT_I = 7
+};
 
 // ============================================================================
 // Version / ABI
@@ -488,7 +559,9 @@ char* opencc_convert(const void* instance, const char* input, const char* config
 char* opencc_convert_cfg(const void* instance, const char* input, opencc_config_t config, bool punctuation);
 
 /**
- * @deprecated Planned for removal. Prefer `opencc_convert()` or `opencc_convert_cfg()`.
+ * @deprecated Prefer `opencc_convert()` or `opencc_convert_cfg()` for ordinary
+ *     allocated-return conversion. Use `opencc_convert_cfg_mem_len()` only when
+ *     an explicit input length and caller-owned output buffer are required.
  *
  * Converts a UTF-8 input buffer with explicit byte length using a string config name.
  *
@@ -518,11 +591,34 @@ char* opencc_convert_len(
     const char* config,
     bool punctuation);
 
+/**
+ * @deprecated Prefer `opencc_convert_cfg()` for ordinary allocated-return
+ *     conversion. Use `opencc_convert_cfg_mem_len()` only when an explicit
+ *     input length and caller-owned output buffer are required.
+ *
+ * Converts a UTF-8 input buffer with explicit byte length using a numeric
+ * OpenCC config.
+ *
+ * The input buffer does not need to be null-terminated.
+ *
+ * @return
+ *     A newly allocated null-terminated UTF-8 string. The returned string must
+ *     be freed using `opencc_string_free()`.
+ */
+char* opencc_convert_cfg_len(
+    const void* instance,
+    const char* input,
+    size_t input_len,
+    opencc_config_t config,
+    bool punctuation);
+
 // ============================================================================
 // Conversion API (caller-provided buffer)
 // ============================================================================
 
 /**
+ * @deprecated Use `opencc_convert_cfg_mem_len()` instead.
+ *
  * Converts a null-terminated UTF-8 input string using a numeric OpenCC config,
  * writing the result into a caller-provided buffer.
  *
@@ -680,6 +776,101 @@ bool opencc_convert_cfg_mem_len(
     size_t* out_required);
 
 // ============================================================================
+// Compatibility / DeTofu API
+// ============================================================================
+
+/**
+ * Normalizes CJK Compatibility Ideographs in a UTF-8 string.
+ *
+ * This is the C API counterpart of `OpenCC::normalize_compat()`.
+ *
+ * @param instance
+ *     A pointer to the OpenCC instance.
+ * @param input
+ *     The input null-terminated UTF-8 string.
+ *
+ * @return
+ *     A newly allocated null-terminated UTF-8 string on success.
+ *
+ *     Returns NULL if `instance` or `input` is NULL, or if `input` is not
+ *     valid UTF-8. Retrieve the error immediately on the same calling thread
+ *     using `opencc_last_error()`.
+ *
+ * @ownership
+ *     The returned string must be released using `opencc_string_free()`.
+ *
+ * @since
+ *     Available since v0.12.0.
+ */
+char* opencc_normalize_compat(
+    const void* instance,
+    const char* input
+);
+
+/**
+ * Applies extended compatibility normalization to a UTF-8 string.
+ *
+ * This combines CJK Compatibility Ideograph normalization with the curated
+ * Unicode compatibility mappings used by
+ * `OpenCC::normalize_compat_extended()`.
+ *
+ * @param instance
+ *     A pointer to the OpenCC instance.
+ * @param input
+ *     The input null-terminated UTF-8 string.
+ *
+ * @return
+ *     A newly allocated null-terminated UTF-8 string on success.
+ *
+ *     Returns NULL if `instance` or `input` is NULL, or if `input` is not
+ *     valid UTF-8. Retrieve the error immediately on the same calling thread
+ *     using `opencc_last_error()`.
+ *
+ * @ownership
+ *     The returned string must be released using `opencc_string_free()`.
+ *
+ * @since
+ *     Available since v0.12.0.
+ */
+char* opencc_normalize_compat_extended(
+    const void* instance,
+    const char* input
+);
+
+/**
+ * Applies the built-in DeTofu display-compatibility fallback.
+ *
+ * DeTofu is normally applied after OpenCC conversion. The selected threshold
+ * controls which non-BMP CJK extension mappings are eligible for replacement.
+ *
+ * @param instance
+ *     A pointer to the OpenCC instance.
+ * @param input
+ *     The input null-terminated UTF-8 string.
+ * @param level
+ *     DeTofu threshold such as `OPENCC_DETOFU_EXT_B`.
+ *
+ * @return
+ *     A newly allocated null-terminated UTF-8 string on success.
+ *
+ *     Returns NULL if an argument is invalid, the input is not valid UTF-8,
+ *     or `level` is not a recognized `opencc_detofu_level_t` value. Retrieve
+ *     the error immediately on the same calling thread using
+ *     `opencc_last_error()`.
+ *
+ * @ownership
+ *     The returned string must be released using `opencc_string_free()`.
+ *
+ * @since
+ *     Available since v0.12.0.
+ */
+char* opencc_detofu(
+    const void* instance,
+    const char* input,
+    opencc_detofu_level_t level
+);
+
+// ============================================================================
 // Other API
 // ============================================================================
 
@@ -708,13 +899,20 @@ int opencc_zho_check(const void* instance, const char* input);
 // ============================================================================
 
 /**
- * Frees a string returned by conversion functions such as `opencc_convert()`
- * or `opencc_convert_cfg()`.
+ * Frees a string returned by an OpenCC transformation function.
+ *
+ * This includes strings returned by:
+ *
+ * - `opencc_convert()`
+ * - `opencc_convert_cfg()`
+ * - `opencc_normalize_compat()`
+ * - `opencc_normalize_compat_extended()`
+ * - `opencc_detofu()`
  *
  * Passing NULL is safe and does nothing.
  *
  * @param ptr
- *     A pointer previously returned by a conversion function.
+ *     A string pointer returned by one of the functions above.
  */
 void opencc_string_free(char* ptr);
 

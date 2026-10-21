@@ -232,6 +232,7 @@ public sealed class OpenccFmmsegTests
                     $"Version component '{part}' must be a non-negative integer."
                 );
             }
+
             Assert.IsTrue(
                 Version.TryParse(abiVersion, out var nativeVersion) &&
                 nativeVersion >= new Version(0, 11, 0),
@@ -402,7 +403,7 @@ public sealed class OpenccFmmsegTests
     }
 
     [TestClass]
-    public class OpenccFmmsegFastTests
+    public class OpenccFmmsegConversionTests
     {
         private const string Input =
             "意大利罗浮宫里收藏的“蒙娜丽莎的微笑”画像是旷世之作。";
@@ -411,38 +412,39 @@ public sealed class OpenccFmmsegTests
             "義大利羅浮宮裡收藏的「蒙娜麗莎的微笑」畫像是曠世之作。";
 
         [TestMethod]
-        public void ConvertCfgFast_WithOpenccConfigEnum_ReturnsExpectedText()
+        public void ConvertCfg_WithOpenccConfigEnum_ReturnsExpectedText()
         {
             using var opencc = new OpenccFmmseg();
-            var result = opencc.ConvertCfgMemLen(
+
+            var result = opencc.ConvertCfg(
                 Input,
-                (int)OpenccConfig.S2TWP,
+                OpenccConfig.S2TWP,
                 punctuation: true);
 
             Assert.AreEqual(Expected, result);
         }
 
         [TestMethod]
-        public void ConvertCfgFast_WithEnumVariableId_ReturnsExpectedText()
+        public void ConvertCfg_WithEnumVariable_ReturnsExpectedText()
         {
             using var opencc = new OpenccFmmseg();
             const OpenccConfig config = OpenccConfig.S2TWP;
 
-            var result = opencc.ConvertCfgMemLen(
+            var result = opencc.ConvertCfg(
                 Input,
-                (int)config,
+                config,
                 punctuation: true);
 
             Assert.AreEqual(Expected, result);
         }
 
         [TestMethod]
-        public void ConvertCfgFast_WithNumericConfigId_ReturnsExpectedText()
+        public void ConvertCfg_WithNumericConfigId_ReturnsExpectedText()
         {
             using var opencc = new OpenccFmmseg();
             const int configId = (int)OpenccConfig.S2TWP;
 
-            var result = opencc.ConvertCfgMemLen(
+            var result = opencc.ConvertCfg(
                 Input,
                 configId,
                 punctuation: true);
@@ -451,15 +453,12 @@ public sealed class OpenccFmmsegTests
         }
 
         [TestMethod]
-        public void ConvertCfgFastUtf8Z_ReturnsExpectedBytes()
+        public void ConvertCfgToUtf8Z_ReturnsExpectedBytes()
         {
             using var opencc = new OpenccFmmseg();
 
-            const string input = "意大利罗浮宫里收藏的“蒙娜丽莎的微笑”画像是旷世之作。";
-            const string expected = "義大利羅浮宮裡收藏的「蒙娜麗莎的微笑」畫像是曠世之作。";
-
-            var bytes = opencc.ConvertCfgMemLenToUtf8Z(
-                input,
+            var bytes = opencc.ConvertCfgToUtf8Z(
+                Input,
                 (int)OpenccConfig.S2TWP,
                 punctuation: true);
 
@@ -468,31 +467,32 @@ public sealed class OpenccFmmsegTests
 
             var actual = new UTF8Encoding(false, true).GetString(bytes, 0, bytes.Length - 1);
 
-            Assert.AreEqual(expected, actual);
+            Assert.AreEqual(Expected, actual);
         }
 
         [TestMethod]
-        public void ConvertCfgFast_SmallInput_UsesStackPath()
+        public void DeprecatedConversionAliases_StillForwardCorrectly()
         {
             using var opencc = new OpenccFmmseg();
 
-            var result = opencc.ConvertCfgMemLen("大不列颠岛", (int)OpenccConfig.S2T);
+#pragma warning disable CS0618 // Intentionally exercise deprecated compatibility aliases.
+            var result = opencc.ConvertCfgMemLen(
+                Input,
+                (int)OpenccConfig.S2TWP,
+                punctuation: true);
 
-            Assert.AreEqual("大不列顛島", result);
-        }
+            var bytes = opencc.ConvertCfgMemLenToUtf8Z(
+                Input,
+                (int)OpenccConfig.S2TWP,
+                punctuation: true);
+#pragma warning restore CS0618
 
-        [TestMethod]
-        public void ConvertCfgFast_LargeInput_UsesFallbackPath()
-        {
-            using var opencc = new OpenccFmmseg();
+            Assert.AreEqual(Expected, result);
+            Assert.IsGreaterThanOrEqualTo(1, bytes.Length);
+            Assert.AreEqual(0, bytes[^1], "Returned buffer must be NUL-terminated.");
 
-            const int len = 2000; // definitely exceeds 1024 buffer
-            var large = new string('汉', len);
-            var expected = new string('漢', len);
-
-            var result = opencc.ConvertCfgMemLen(large, (int)OpenccConfig.S2T);
-
-            Assert.AreEqual(expected, result); // or real expected
+            var actual = new UTF8Encoding(false, true).GetString(bytes, 0, bytes.Length - 1);
+            Assert.AreEqual(Expected, actual);
         }
     }
 }
