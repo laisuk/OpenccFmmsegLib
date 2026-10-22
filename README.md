@@ -258,6 +258,13 @@ remain unchanged; none of these operations runs automatically during conversion.
 
 ### `OpenccFmmseg`
 
+* `OpenccFmmseg()`
+  Creates a converter using the built-in dictionaries.
+
+* `OpenccFmmseg(IEnumerable<CustomDictSpec> customDictionarySpecifications)`
+  Creates an immutable converter with ordered custom dictionary specifications.
+  See [Custom Dictionaries](#custom-dictionaries) for merge behavior and native requirements.
+
 * `string NormalizeCompat(string text)`
   Normalizes mapped CJK Compatibility Ideographs using the native table.
 
@@ -276,35 +283,109 @@ remain unchanged; none of these operations runs automatically during conversion.
 * `string ConvertCfg(string input, OpenccConfig configId, bool punctuation = false)`
   Converts Chinese text using the numeric-config native path with a typed config enum.
 
+* `string ConvertCfg(string input, int configNum, bool punctuation = false)`
+  Advanced interop overload using a numeric configuration ID. Validation is delegated to the native library;
+  invalid IDs return native error text and set `LastError()`. Hidden from IntelliSense.
+
 * `string ConvertCfgMemLen(string input, int configId, bool punctuation = false)`
   Uses the specialized explicit-length native buffer pipeline. Prefer `Convert()` or `ConvertCfg()`
   for ordinary conversion; this API's size-query and output passes add conversion overhead.
 
-* `byte[] ConvertCfgMemLenToUtf8Z(string input, int configId, bool punctuation = false)`
-  Returns UTF-8 output including a trailing NUL terminator for interop scenarios.
+* `byte[] ConvertCfgToUtf8Z(string input, int configId, bool punctuation = false)`
+  Returns a newly allocated UTF-8 byte array including a trailing NUL terminator for interop scenarios.
+  Uses the explicit-length native size-query and output passes; null or empty input returns a single NUL byte.
 
 *
-
 `bool TryConvertCfgToUtf8(string input, int configId, bool punctuation, Span<byte> destination, out int requiredBytes)`
-Writes UTF-8 output into a caller-provided buffer using the native size-query API.
+Writes NUL-terminated UTF-8 output into a caller-provided buffer using the explicit-length native API.
+`requiredBytes` includes the trailing NUL byte, including for null or empty input (one byte).
+
+* `byte[] ConvertCfgMemLenToUtf8Z(string input, int configId, bool punctuation = false)`
+  Obsolete alias for `ConvertCfgToUtf8Z()`; hidden from IntelliSense.
 
 *
-
 `bool TryConvertCfgToUtf8Into(string input, int configId, bool punctuation, Span<byte> destination, out int requiredBytes)`
-Writes UTF-8 output into a caller-provided buffer using the explicit-length native API.
+Obsolete alias for `TryConvertCfgToUtf8()`; hidden from IntelliSense.
 
-For both `TryConvertCfgToUtf8*` methods, `false` with `requiredBytes > destination.Length`
+For `TryConvertCfgToUtf8()` and its legacy alias, `false` with `requiredBytes > destination.Length`
 means the buffer is too small; resize and retry. This is the expected result for an empty-buffer size query and is not a
 native error. For other `false` results, retrieve
 `LastError()` immediately on the same thread.
 
 * `int ZhoCheck(string input)`
-  Detects whether the input text is Simplified Chinese, Traditional Chinese, or non-Chinese.
+  Detects non-Chinese (0), Traditional Chinese (1), or Simplified Chinese (2) text.
+
+* `static int GetNativeAbiNumber()`
+  Returns the native binary interface version for compatibility diagnostics.
+
+* `static string GetNativeVersionString()`
+  Returns the native library's semantic version string for logging and diagnostics.
+
+* `static bool ConfigNameToIdNative(string name, out OpenccConfig configId)`
+  Attempts a case-insensitive configuration-name lookup using the native library.
+
+* `static bool ConfigIdToNameNative(OpenccConfig configId, out string name)`
+  Attempts to retrieve a canonical lowercase configuration name using the native library.
+
+The native configuration helpers are intended for interop/debugging and do not set the native last-error state.
+Prefer the managed `OpenccConfigExtensions` helpers for ordinary configuration parsing and formatting.
 
 * `static string LastError()`
   Returns the last error message reported by the native library for the calling thread.
 
-* Implements `IDisposable` for deterministic native resource cleanup.
+* `void Dispose()`
+  Implements `IDisposable` for deterministic native resource cleanup; repeated calls are safe.
+
+### `OpenccConfigExtensions`
+
+These helpers are pure managed code and do not require loading the native library.
+Configuration names are case-insensitive and otherwise must match a supported canonical name.
+
+* `static OpenccConfig DefaultConfig()`
+  Returns the managed default, `OpenccConfig.S2T`.
+
+* `static bool TryParseConfig(string name, out OpenccConfig configId)`
+  Returns whether a name is supported; on failure, sets `configId` to `default`.
+
+* `static OpenccConfig Parse(string name)`
+  Parses a supported name; throws `ArgumentNullException` for null or `ArgumentException` for an unsupported name.
+
+* `static bool IsValidConfig(string name)`
+  Tests whether a name is supported without throwing.
+
+* `static bool TryGetConfigName(OpenccConfig configId, out string name)`
+  Returns a canonical lowercase name, or `false` with an empty string for an undefined ID.
+
+* `static string ToCanonicalName(this OpenccConfig config)`
+  Extension method returning a canonical lowercase name; throws `ArgumentOutOfRangeException` for an undefined ID.
+
+### Custom dictionary specifications
+
+* `CustomDictSpec(DictSlot slot, CustomDictMode mode, IEnumerable<KeyValuePair<string, string>> entries)`
+  Copies ordered mappings into an immutable specification, validating the slot, mode, and entries.
+
+* `DictSlot Slot { get; }`, `CustomDictMode Mode { get; }`
+  Expose the selected dictionary slot and merge mode.
+
+* `IReadOnlyList<KeyValuePair<string, string>> Entries { get; }`
+  Exposes the read-only snapshot of mappings in input order.
+
+### Public enums
+
+* `OpenccConfig`
+  Defines all 24 numeric conversion IDs, including `S2SEAL`, `T2SEAL`, `SEAL2S`, and `SEAL2T`.
+  See [Supported Conversion Configurations](#supported-conversion-configurations).
+
+* `DictSlot : uint`
+  Defines all 25 native dictionary slots, including `SealCharacters`, `SealCharactersRev`,
+  `SealVariants`, and `SealVariantsRev`. See [Custom Dictionaries](#custom-dictionaries).
+
+* `CustomDictMode : uint`
+  Defines `Append` (1) to merge entries and `Override` (2) to clear a slot before applying entries.
+
+* `DeTofuLevel : uint`
+  Defines inclusive display-fallback thresholds from `ExtB` (0) through `ExtI` (7).
+  See [Compatibility Normalization and DeTofu](#compatibility-normalization-and-detofu).
 
 ---
 
