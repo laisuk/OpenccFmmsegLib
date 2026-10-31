@@ -15,7 +15,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - Added instance methods `NormalizeCompat`, `NormalizeCompatExtended`, and `DeTofu`, backed by the native
   instance-based C API (v0.12.0 or later). Existing conversion behavior remains unchanged.
 - Added `DeTofuLevel` with explicit native `uint32_t` values 0–7 for inclusive ExtB–ExtI thresholds.
-- Added `shared pooled UTF-8 marshalling`, immediate thread-local error checks (including allocated native error strings),
+- Added `shared pooled UTF-8 marshalling`, immediate thread-local error checks (including allocated native error
+  strings),
   and guaranteed native-output/input-buffer cleanup for the new text operations.
 - Added normalization golden cases, all DeTofu thresholds, Unicode preservation, disposal, repeated-call,
   custom dictionary compatibility, and native error ownership regression coverage.
@@ -29,6 +30,9 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Optimized `ConvertCfgToUtf8Z` to retain one pooled input encoding across one native size query and one
+  output call, eliminating the redundant query and re-encoding. Native failures are captured immediately
+  without retrying; explicit input lengths, NUL-inclusive output sizes, and `netstandard2.0` support are preserved.
 - Expanded the encoded-config cache to cover all 24 managed/native configuration IDs.
 - Updated all bundled native `opencc-fmmseg-capi` runtimes to v0.13.1: Windows x64, Linux x64/ARM64, and macOS
   x64/ARM64.

@@ -717,7 +717,8 @@ namespace OpenccFmmsegLib
         /// always includes the trailing NUL byte (<c>'\0'</c>).
         /// </para>
         /// <para>
-        /// The underlying explicit-length buffer API uses a size query followed by an output pass, so this
+        /// The input is encoded once and retained across the native size query and output pass. The
+        /// underlying explicit-length buffer API still performs conversion twice, so this
         /// method should not be selected as a performance optimization. If caller-owned buffer
         /// placement is required, use
         /// <see cref="TryConvertCfgToUtf8(string,int,bool,System.Span{byte},out int)"/>.
@@ -745,22 +746,53 @@ namespace OpenccFmmsegLib
         /// Thrown if the conversion fails. The exception message contains the
         /// native error returned by <see cref="LastError"/> when available.
         /// </exception>
-        public byte[] ConvertCfgToUtf8Z(string input, int configId, bool punctuation = false)
+        public unsafe byte[] ConvertCfgToUtf8Z(string input, int configId, bool punctuation = false)
         {
             ThrowIfDisposed();
 
-            // First call with empty destination to get required bytes
-            var dummy = Span<byte>.Empty;
-            _ = TryConvertCfgToUtf8(input, configId, punctuation, dummy, out var required);
+            if (string.IsNullOrEmpty(input))
+                return new byte[1];
 
-            // required includes '\0'
-            var buf = new byte[required];
+            var inputByteCount = Encoding.UTF8.GetByteCount(input);
+            byte[] inputBuffer = null;
+            try
+            {
+                inputBuffer = ArrayPool<byte>.Shared.Rent(inputByteCount);
+                var written = Encoding.UTF8.GetBytes(input, 0, input.Length, inputBuffer, 0);
+                var required = ConvertCfgUtf8BufferOrThrow(
+                    inputBuffer, written, configId, punctuation, IntPtr.Zero, 0);
 
-            if (TryConvertCfgToUtf8(input, configId, punctuation, buf, out _)) return buf;
-            // Match the library style: surface native last error
-            var err = LastError();
-            throw new InvalidOperationException(
-                string.IsNullOrWhiteSpace(err) ? "OpenccFmmseg conversion failed." : err);
+                // The native size includes the trailing NUL. Keep the encoded input for the output pass.
+                var buffer = new byte[required];
+                fixed (byte* destination = buffer)
+                {
+                    ConvertCfgUtf8BufferOrThrow(
+                        inputBuffer, written, configId, punctuation, (IntPtr)destination, buffer.Length);
+                }
+
+                return buffer;
+            }
+            finally
+            {
+                if (inputBuffer != null)
+                    ArrayPool<byte>.Shared.Return(inputBuffer);
+            }
+        }
+
+        private int ConvertCfgUtf8BufferOrThrow(
+            byte[] input, int inputLength, int configId, bool punctuation, IntPtr destination, int capacity)
+        {
+            if (!OpenccFmmsegNative.opencc_convert_cfg_mem_len(
+                    _openccInstance, input, (UIntPtr)inputLength, configId, punctuation,
+                    destination, (UIntPtr)capacity, out var required))
+            {
+                // Capture the original thread-local error before any further OpenCC call or retry.
+                var error = LastError();
+                throw new InvalidOperationException(
+                    string.IsNullOrWhiteSpace(error) ? "OpenccFmmseg conversion failed." : error);
+            }
+
+            return ToInt32Checked(required);
         }
 
         /// <summary>
