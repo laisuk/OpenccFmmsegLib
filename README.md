@@ -14,6 +14,8 @@ This library focuses **only on OpenCC-style conversion**. For Jieba segmentation
 
 ---
 
+This README describes the public API for **v1.5.0**, bundled with native `opencc-fmmseg-capi` **v0.13.1**.
+
 ## Features
 
 * OpenCC-compatible Chinese text conversion (Simplified / Traditional variants)
@@ -54,8 +56,8 @@ Displaying the resulting Small Seal Script characters requires a font that suppo
 
 ### Prerequisites
 
-* .NET Standard 2.0 or higher (.NET Framework, .NET Core / 5+ / 6+, Mono, Xamarin, etc.)
-* .NET 6.0 or later recommended
+* A .NET runtime that supports .NET Standard 2.0 and a shipped native platform/architecture
+* Examples use C# 8 or later (`using var`); older language versions can use a `using` block
 * Native **`opencc_fmmseg_capi`** library available at runtime
 
 ---
@@ -88,7 +90,7 @@ No manual copying is required when using NuGet.
 
 ### Option 2 — Project Reference / Custom Native Builds
 
-If you use a project reference or a custom native build, place the native library using the same layout as NuGet:
+The package source organizes native assets using this layout:
 
 ```
 runtimes/<RID>/native/
@@ -100,10 +102,14 @@ Expected filenames:
 * Linux: `libopencc_fmmseg_capi.so`
 * macOS: `libopencc_fmmseg_capi.dylib`
 
-The built-in native loader will discover the library automatically.
+This wrapper uses standard P/Invoke library resolution and has no custom native loader.
+For project references and custom builds, copy the native file next to the application executable
+or configure the platform native-library search path. A `runtimes/<RID>/native/` folder alone
+does not guarantee discovery outside NuGet runtime asset resolution.
 
 > 🧪 **Unit test projects** must also have access to the native library.
-> Use the same layout under the test project output directory.
+> Copy it next to the test assembly when using a project reference, as this repository
+> does for Windows x64 tests.
 
 ---
 
@@ -246,7 +252,12 @@ remain unchanged; none of these operations runs automatically during conversion.
 
 ## Error Handling
 
-* `InvalidOperationException` is thrown if initialization fails or a native error occurs.
+* Constructors, normalization, DeTofu, and `ConvertCfgToUtf8Z` throw `InvalidOperationException` on native failure.
+* `Convert` and `ConvertCfg` preserve the native string-returning contract: native errors can be returned as
+  text, and a null native output pointer becomes an empty string. They do not uniformly throw on native errors.
+* `TryConvertCfgToUtf8` returns `false` for insufficient capacity or native failure; see its buffer contract below.
+* Missing, incompatible, or older custom native libraries can cause `DllNotFoundException`,
+  `BadImageFormatException`, or `EntryPointNotFoundException`.
 * `ObjectDisposedException` is thrown by instance APIs after disposal, including for null or empty input.
 * `OpenccFmmseg.LastError()` returns the last native error for the calling thread. Read it immediately after the failing
   native call, on the same thread, before an `await`
@@ -255,6 +266,24 @@ remain unchanged; none of these operations runs automatically during conversion.
 ---
 
 ## Public API Overview
+
+### Input and validation contracts
+
+On a live converter, null or empty text returns an empty string (`Convert`, `ConvertCfg`, normalization,
+DeTofu), zero (`ZhoCheck`), or a single NUL byte (UTF-8 output). Conversion methods skip configuration
+validation for null or empty input. DeTofu validates its level even for empty input. Disposal is checked first.
+
+For nonempty input, `Convert(string, string, bool)` validates the managed canonical name and
+`Convert(string, OpenccConfig, bool)` throws `ArgumentOutOfRangeException` for an undefined enum value.
+Both `ConvertCfg` overloads delegate ID validation to native code, including undefined enum values.
+Names are case-insensitive but do not accept whitespace, paths, `.json` suffixes, or numeric strings.
+The enum default value, zero, is not a valid configuration; use `OpenccConfigExtensions.DefaultConfig()`.
+
+`Convert`, `ConvertCfg`, and `ZhoCheck` pass NUL-terminated input: embedded NUL characters truncate
+native input. Normalization and DeTofu reject embedded NUL. The explicit-length UTF-8 APIs pass the full
+input length; output can contain embedded NUL bytes, so use byte counts when decoding it.
+Ordinary text APIs use .NET UTF-8 replacement fallback for invalid UTF-16; custom dictionary entries
+are validated strictly instead.
 
 ### `OpenccFmmseg`
 
@@ -275,10 +304,10 @@ remain unchanged; none of these operations runs automatically during conversion.
   Applies optional native display fallback at an inclusive CJK extension threshold.
 
 * `string Convert(string input, string config, bool punctuation = false)`
-  Converts Chinese text using the specified canonical OpenCC configuration name and throws for invalid names.
+  Converts text using a case-insensitive canonical name; validates names for nonempty input.
 
 * `string Convert(string input, OpenccConfig configId, bool punctuation = false)`
-  Converts Chinese text using the OpenCC configuration Enum.
+  Converts text using a typed configuration; validates enum values for nonempty input.
 
 * `string ConvertCfg(string input, OpenccConfig configId, bool punctuation = false)`
   Converts Chinese text using the numeric-config native path with a typed config enum.
@@ -288,7 +317,8 @@ remain unchanged; none of these operations runs automatically during conversion.
   invalid IDs return native error text and set `LastError()`. Hidden from IntelliSense.
 
 * `string ConvertCfgMemLen(string input, int configId, bool punctuation = false)`
-  Uses the specialized explicit-length native buffer pipeline. Prefer `Convert()` or `ConvertCfg()`
+  Obsolete and hidden from IntelliSense. Uses the specialized explicit-length native buffer pipeline. Prefer
+  `ConvertCfg()`
   for ordinary conversion; this API's size-query and output passes add conversion overhead.
 
 * `byte[] ConvertCfgToUtf8Z(string input, int configId, bool punctuation = false)`
@@ -311,6 +341,28 @@ For `TryConvertCfgToUtf8()` and its legacy alias, `false` with `requiredBytes > 
 means the buffer is too small; resize and retry. This is the expected result for an empty-buffer size query and is not a
 native error. For other `false` results, retrieve
 `LastError()` immediately on the same thread.
+
+Example of caller-owned UTF-8 output (requires `using System;` and `using System.Text;`):
+
+```csharp
+using var converter = new OpenccFmmseg();
+Span<byte> destination = stackalloc byte[256];
+if (!converter.TryConvertCfgToUtf8("汉字", (int)OpenccConfig.S2T, false,
+        destination, out int requiredBytes))
+{
+    if (requiredBytes <= destination.Length)
+        throw new InvalidOperationException(OpenccFmmseg.LastError());
+
+    destination = new byte[requiredBytes];
+    if (!converter.TryConvertCfgToUtf8("汉字", (int)OpenccConfig.S2T, false,
+            destination, out requiredBytes))
+        throw new InvalidOperationException(OpenccFmmseg.LastError());
+}
+string text = Encoding.UTF8.GetString(destination.Slice(0, requiredBytes - 1).ToArray());
+```
+
+Only use destination contents on success. Required sizes include the final NUL; exclude that one byte
+when decoding. Required sizes greater than `Int32.MaxValue` throw `OverflowException`.
 
 * `int ZhoCheck(string input)`
   Detects non-Chinese (0), Traditional Chinese (1), or Simplified Chinese (2) text.
@@ -424,7 +476,7 @@ xattr -dr com.apple.quarantine libopencc_fmmseg_capi.dylib
 
 ## Thread Safety
 
-* Do not share a single `OpenccFmmseg` instance across threads
+* Do not use a single `OpenccFmmseg` instance concurrently across threads, including during disposal
 * Create one instance per thread or scope
 * Dispose instances promptly (`using` is recommended)
 

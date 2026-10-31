@@ -30,6 +30,9 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Aligned public XML documentation and README contracts for configuration validation, native error handling,
+  UTF-8 buffer sizing, embedded NUL input, disposal, and native deployment; clarified obsolete API replacements.
+
 - Optimized `ConvertCfgToUtf8Z` to retain one pooled input encoding across one native size query and one
   output call, eliminating the redundant query and re-encoding. Native failures are captured immediately
   without retrying; explicit input lengths, NUL-inclusive output sizes, and `netstandard2.0` support are preserved.

@@ -8,10 +8,17 @@ using System.Runtime.CompilerServices;
 namespace OpenccFmmsegLib
 {
     /// <summary>
-    /// Provides a managed wrapper for the OpenCC + FMMSEG C API for Chinese text conversion and segmentation.
+    /// Provides Chinese text conversion, compatibility normalization, and display fallback through the native OpenCC-FMMSEG C API.
     /// </summary>
     /// <remarks>
-    /// This class manages the native OpenCC instance and provides methods for text conversion and language checks.
+    /// Owns a native converter; dispose it when no longer needed. Do not use one instance concurrently
+    /// from multiple threads, including during disposal. Use a separate instance per thread or scope.
+    /// Normalization and display fallback are opt-in operations. No segmentation API is exposed.
+    /// Native loading failures can throw DllNotFoundException, BadImageFormatException, or
+    /// EntryPointNotFoundException when the runtime is missing, incompatible, or too old.
+    /// Text is encoded with the .NET UTF-8 replacement fallback; custom dictionary entries instead require valid UTF-16.
+    /// Convert, ConvertCfg, and ZhoCheck use NUL-terminated native input: an embedded NUL truncates input.
+    /// The explicit-length UTF-8 APIs preserve input length; their output may contain embedded NUL bytes.
     /// </remarks>
     public sealed class OpenccFmmseg : IDisposable
     {
@@ -37,7 +44,7 @@ namespace OpenccFmmsegLib
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="OpenccFmmseg"/> class.
+        /// Creates a converter using the built-in dictionaries.
         /// </summary>
         /// <exception cref="InvalidOperationException">Thrown if the native OpenCC instance cannot be created.</exception>
         public OpenccFmmseg()
@@ -188,7 +195,7 @@ namespace OpenccFmmsegLib
         }
 
         /// <summary>
-        /// Releases all resources used by the <see cref="OpenccFmmseg"/> instance.
+        /// Releases the native converter. Repeated calls are safe.
         /// </summary>
         public void Dispose()
         {
@@ -281,7 +288,12 @@ namespace OpenccFmmsegLib
         /// <remarks>
         /// <para>
         /// This overload validates <paramref name="config"/> using the managed configuration parser
-        /// and throws for unsupported names instead of silently substituting a fallback configuration.
+        /// and throws for unsupported names on nonempty input. Null or empty input returns before configuration validation.
+        /// </para>
+        /// <para>
+        /// Native failures follow the native string-returning contract: the result can contain error text,
+        /// or be empty for a null native output pointer. Read <see cref="LastError"/> immediately on the same thread
+        /// when diagnosing a native failure.
         /// </para>
         /// <para>
         /// Prefer <see cref="Convert(string,OpenccConfig,bool)"/> when possible for stronger typing
@@ -292,10 +304,10 @@ namespace OpenccFmmsegLib
         /// Thrown if this instance has been disposed.
         /// </exception>
         /// <exception cref="ArgumentNullException">
-        /// Thrown if <paramref name="config"/> is <c>null</c>.
+        /// Thrown if input is nonempty and <paramref name="config"/> is <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// Thrown if <paramref name="config"/> is not a supported canonical OpenCC configuration name.
+        /// Thrown if input is nonempty and <paramref name="config"/> is not a supported canonical OpenCC configuration name.
         /// </exception>
         public string Convert(string input, string config, bool punctuation = false)
         {
@@ -329,13 +341,14 @@ namespace OpenccFmmsegLib
         /// strongly typed, self-documenting, and avoids string-based configuration errors.
         /// </para>
         /// <para>
-        /// Internally, the configuration is canonicalized and forwarded to the native layer.
-        /// Native-side validation still applies.
+        /// Undefined enum values throw on nonempty input; null or empty input returns before validation.
+        /// Native failures follow the same string-returning contract as <see cref="Convert(string,string,bool)"/>.
         /// </para>
         /// </remarks>
         /// <exception cref="ObjectDisposedException">
         /// Thrown if this instance has been disposed.
         /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">Input is nonempty and the configuration ID is undefined.</exception>
         public string Convert(string input, OpenccConfig configId, bool punctuation = false)
         {
             ThrowIfDisposed();
@@ -477,7 +490,7 @@ namespace OpenccFmmsegLib
         /// </para>
         /// <para>
         /// <b>Return value notes</b><br/>
-        /// This method returns an empty string only when <paramref name="input"/> is null/empty,
+        /// This method returns an empty string when <paramref name="input"/> is null/empty,
         /// or if the native call returns <see cref="IntPtr.Zero"/> (for example, due to OOM).
         /// In the invalid-config case, the returned string contains the native error message.
         /// </para>
@@ -485,7 +498,6 @@ namespace OpenccFmmsegLib
         /// <exception cref="ObjectDisposedException">
         /// Thrown if this instance has been disposed.
         /// </exception>
-        /// <inheritdoc cref="ConvertCfg(string,int,bool)"/>
         [EditorBrowsable(EditorBrowsableState.Never)]
         public string ConvertCfg(string input, int configNum, bool punctuation = false)
         {
@@ -517,7 +529,9 @@ namespace OpenccFmmsegLib
         /// </para>
         /// <para>
         /// Internally, this forwards to the native numeric-config API.
-        /// Native-side validation still applies for consistency with other bindings.
+        /// Undefined enum values are passed to native validation and can return error text rather than throw.
+        /// Read <see cref="LastError"/> immediately on the same thread after a native failure.
+        /// A null native output pointer becomes an empty string. Null or empty input bypasses native validation.
         /// </para>
         /// </remarks>
         /// <exception cref="ObjectDisposedException">
@@ -608,6 +622,18 @@ namespace OpenccFmmsegLib
         /// again to write the result; use this method for its buffer contract, not as a performance optimization.
         /// </para>
         /// </remarks>
+        /// <param name="input">UTF-16 text; null or empty requires only one output NUL byte and bypasses native validation.</param>
+        /// <param name="configId">Numeric configuration ID; validated by the native library for nonempty input.</param>
+        /// <param name="punctuation">Whether to convert punctuation.</param>
+        /// <param name="destination">Destination for UTF-8 output, including its trailing NUL. Contents are usable only on success.</param>
+        /// <param name="requiredBytes">Required capacity in bytes, including the trailing NUL; updated by the native query or output pass.</param>
+        /// <returns>
+        /// True if output was written; false if the destination is too small or native conversion failed.
+        /// If requiredBytes exceeds destination.Length, resize and retry. Otherwise, read LastError immediately
+        /// on the same thread. An empty destination is a size query and normally returns false.
+        /// </returns>
+        /// <exception cref="ObjectDisposedException">The converter has been disposed, including for empty input.</exception>
+        /// <exception cref="OverflowException">The native required size exceeds Int32.MaxValue.</exception>
         public unsafe bool TryConvertCfgToUtf8(
             string input,
             int configId,
@@ -673,13 +699,8 @@ namespace OpenccFmmsegLib
             }
         }
 
-        /// <summary>
-        /// Legacy name for <see cref="TryConvertCfgToUtf8"/>.
-        /// </summary>
-        /// <remarks>
-        /// Deprecated because the explicit-length native implementation is now the standard implementation detail
-        /// of <see cref="TryConvertCfgToUtf8"/> and should not be exposed in the managed API name.
-        /// </remarks>
+        /// <inheritdoc cref="TryConvertCfgToUtf8"/>
+        /// <summary>Obsolete alias for <see cref="TryConvertCfgToUtf8"/>. Use that method for new code.</summary>
         [Obsolete(
             "Use TryConvertCfgToUtf8 instead. The managed API now uses the explicit-length native path internally.")]
         [EditorBrowsable(EditorBrowsableState.Never)]
@@ -713,8 +734,8 @@ namespace OpenccFmmsegLib
         /// <see cref="ConvertCfg(string,OpenccConfig,bool)"/>.
         /// </para>
         /// <para>
-        /// The returned byte array represents a valid UTF-8 C-style string and
-        /// always includes the trailing NUL byte (<c>'\0'</c>).
+        /// The returned byte array contains UTF-8 output and
+        /// includes the trailing NUL byte (<c>'\0'</c>).
         /// </para>
         /// <para>
         /// The input is encoded once and retained across the native size query and output pass. The
@@ -730,7 +751,8 @@ namespace OpenccFmmsegLib
         /// the result is a single NUL byte.
         /// </param>
         /// <param name="configId">
-        /// Numeric OpenCC configuration identifier (for example <c>OPENCC_CONFIG_S2TWP</c>).
+        /// Numeric OpenCC configuration identifier (for example, <c>(int)OpenccConfig.S2TWP</c>).
+        /// Validated by native code for nonempty input; null or empty input bypasses validation.
         /// </param>
         /// <param name="punctuation">
         /// Whether to convert punctuation. Some configurations may ignore this flag.
@@ -746,6 +768,7 @@ namespace OpenccFmmsegLib
         /// Thrown if the conversion fails. The exception message contains the
         /// native error returned by <see cref="LastError"/> when available.
         /// </exception>
+        /// <exception cref="OverflowException">The native required size exceeds Int32.MaxValue.</exception>
         public unsafe byte[] ConvertCfgToUtf8Z(string input, int configId, bool punctuation = false)
         {
             ThrowIfDisposed();
@@ -795,59 +818,8 @@ namespace OpenccFmmsegLib
             return ToInt32Checked(required);
         }
 
-        /// <summary>
-        /// Converts text using a numeric OpenCC configuration and returns a newly
-        /// allocated UTF-8 byte array including a trailing NUL terminator.
-        /// </summary>
-        /// <remarks>
-        /// <para>
-        /// This is an advanced API for interop or native bridging when the caller specifically
-        /// requires a managed, NUL-terminated UTF-8 buffer instead of a managed
-        /// <see cref="string"/>. For ordinary conversion, prefer
-        /// <see cref="Convert(string,OpenccConfig,bool)"/> or
-        /// <see cref="ConvertCfg(string,OpenccConfig,bool)"/>.
-        /// </para>
-        /// <para>
-        /// Internally, this method uses the explicit input-length native buffer API
-        /// (<c>opencc_convert_cfg_mem_len</c>) and allocates the result entirely in
-        /// managed memory.
-        /// </para>
-        /// <para>
-        /// The underlying buffer API uses a size query followed by an output pass. That
-        /// two-pass work can be slower than the normal conversion APIs, so use this method for
-        /// its output format and ownership behavior, not as a performance optimization.
-        /// </para>
-        /// <para>
-        /// The returned byte array always represents a valid UTF-8 C-style string and
-        /// includes a trailing NUL byte (<c>0x00</c>).
-        /// </para>
-        /// <para>
-        /// For callers that want to reuse their own destination buffer, prefer
-        /// <see cref="TryConvertCfgToUtf8Into(string,int,bool,System.Span{byte},out int)"/>.
-        /// </para>
-        /// </remarks>
-        /// <param name="input">
-        /// Input text as a managed .NET <see cref="string"/> (UTF-16).
-        /// If <paramref name="input"/> is <see langword="null"/> or empty, the result is
-        /// a single NUL byte.
-        /// </param>
-        /// <param name="configId">
-        /// Numeric OpenCC configuration identifier (for example <c>OPENCC_CONFIG_S2TWP</c>).
-        /// </param>
-        /// <param name="punctuation">
-        /// Whether to convert punctuation. Some configurations may ignore this flag.
-        /// </param>
-        /// <returns>
-        /// A newly allocated UTF-8 byte array containing the converted text,
-        /// terminated with a trailing NUL byte.
-        /// </returns>
-        /// <exception cref="ObjectDisposedException">
-        /// Thrown if this instance has been disposed.
-        /// </exception>
-        /// <exception cref="InvalidOperationException">
-        /// Thrown if the conversion fails. The exception message contains the
-        /// native error returned by <see cref="LastError"/> when available.
-        /// </exception>
+        /// <inheritdoc cref="ConvertCfgToUtf8Z"/>
+        /// <summary>Obsolete alias for <see cref="ConvertCfgToUtf8Z"/>. Use that method for new code.</summary>
         [Obsolete(
             "Use ConvertCfgToUtf8Z instead. The managed API now uses the explicit-length native path internally.")]
         [EditorBrowsable(EditorBrowsableState.Never)]
@@ -862,7 +834,7 @@ namespace OpenccFmmsegLib
         /// </summary>
         /// <remarks>
         /// <para>
-        /// This is a specialized API for callers that intentionally need the explicit-length
+        /// Obsolete: use ConvertCfg for new code. This specialized API uses the explicit-length
         /// buffer path (<c>opencc_convert_cfg_mem_len</c>). For ordinary managed-string
         /// conversion, prefer <see cref="Convert(string,OpenccConfig,bool)"/> or
         /// <see cref="ConvertCfg(string,OpenccConfig,bool)"/>.
@@ -883,7 +855,8 @@ namespace OpenccFmmsegLib
         /// If <paramref name="input"/> is <see langword="null"/> or empty, an empty string is returned.
         /// </param>
         /// <param name="configId">
-        /// Numeric OpenCC configuration identifier (for example <c>OPENCC_CONFIG_S2TWP</c>).
+        /// Numeric OpenCC configuration identifier (for example, <c>(int)OpenccConfig.S2TWP</c>).
+        /// Validated by native code for nonempty input; null or empty input bypasses validation.
         /// </param>
         /// <param name="punctuation">
         /// Whether to convert punctuation. Some configurations may ignore this flag.
@@ -940,12 +913,13 @@ namespace OpenccFmmsegLib
         }
 
         /// <summary>
-        /// Checks if the input string is Chinese text using the OpenCC language check.
+        /// Classifies text using the native Chinese script check.
         /// </summary>
-        /// <param name="input">The input string to check.</param>
+        /// <param name="input">Text to check; null or empty returns zero. Embedded NUL truncates native input.</param>
         /// <returns>An integer indicating the result of the check
-        /// (implementation-defined by OpenCC. 1 - Traditional, 2 - Simplified, 0 - Others).
+        /// (1: Traditional Chinese; 2: Simplified Chinese; 0: other, including null or empty input).
         /// </returns>
+        /// <exception cref="ObjectDisposedException">The converter has been disposed, including for empty input.</exception>
         public int ZhoCheck(string input)
         {
             ThrowIfDisposed();
@@ -1008,7 +982,7 @@ namespace OpenccFmmsegLib
         /// </summary>
         /// <param name="name">
         /// Canonical configuration name (for example, <c>"s2t"</c>, <c>"s2twp"</c>, <c>"t2hk"</c>).
-        /// Case-insensitive and culture-invariant.
+        /// Case-insensitive. Null, empty, or whitespace-only input returns false. Embedded NUL truncates native input.
         /// </param>
         /// <param name="configId">
         /// When this method returns <c>true</c>, contains the parsed <see cref="OpenccConfig"/> value;

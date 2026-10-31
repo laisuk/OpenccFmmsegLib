@@ -99,11 +99,12 @@ namespace OpenccFmmsegLib
     // ReSharper restore InconsistentNaming
 
     /// <summary>
-    /// Extension helpers for <see cref="OpenccConfig"/>.
+    /// Managed parsing and formatting helpers for <see cref="OpenccConfig"/>.
     /// </summary>
     /// <remarks>
     /// This class provides utility methods that operate on <see cref="OpenccConfig"/>
-    /// without exposing numeric configuration IDs or native OpenCC details.
+    /// without loading the native library. Names are case-insensitive; whitespace, numeric strings,
+    /// paths, and .json suffixes are not accepted. A default enum value of zero is not a valid configuration.
     /// </remarks>
     public static class OpenccConfigExtensions
     {
