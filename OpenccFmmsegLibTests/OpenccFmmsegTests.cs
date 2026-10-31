@@ -223,7 +223,7 @@ public sealed class OpenccFmmsegTests
             Assert.IsFalse(string.IsNullOrWhiteSpace(abiVersion), "Version string should not be empty.");
 
             var parts = abiVersion.Split('.');
-            Assert.HasCount(3, parts, "Version should have format x.y.z.");
+            Assert.HasCount(4, parts, "Version should have format x.y.z.rev.");
 
             foreach (var part in parts)
             {
