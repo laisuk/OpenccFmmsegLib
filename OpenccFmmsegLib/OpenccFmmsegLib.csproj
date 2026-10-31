@@ -17,6 +17,7 @@
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
         <AssemblyVersion>1.5.0.0</AssemblyVersion>
         <FileVersion>1.5.0.0</FileVersion>
+        <Version>1.5.0</Version>
         <PackageReleaseNotes>v1.5.0
 
             New Features:
@@ -73,17 +74,20 @@
             - Maintained backward compatibility with existing managed consumers.
 
         </PackageReleaseNotes>
-        <Version>1.5.0</Version>
+
+        <PackageIcon>icon.png</PackageIcon>        
+        
         <!-- Generate the XML doc file alongside the DLL -->
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <!-- (Optional) don’t warn about undocumented public members -->
         <NoWarn>$(NoWarn);1591</NoWarn>
     </PropertyGroup>
 
-    <!-- Include README + LISENCE in package -->
+    <!-- Include README + LISENCE + ICON in package -->
     <ItemGroup>
         <None Include="..\README.md" Pack="true" PackagePath="\"/>
         <None Include="..\LICENSE" Pack="true" PackagePath="\"/>
+        <None Include="assets\icon.png" Pack="true" PackagePath="\"/>
     </ItemGroup>
 
     <!-- Pack native assets to the same paths; do NOT copy on build -->
