@@ -92,7 +92,8 @@ namespace OpenccFmmsegLib
         /// <remarks>
         /// Requires native v0.12.0 or later and a live converter instance. This optional preprocessing step
         /// is not general-purpose NFC, NFD, NFKC, or NFKD normalization. It does not run automatically in Convert.
-        /// Use <see cref="NormalizeCompatExtended"/> to also apply the curated extended compatibility mappings.
+        /// Use <see cref="NormalizeCompatExtended"/> to also apply the curated Unicode mappings,
+        /// or <see cref="NormalizeUnicodeCompat"/> to apply only the curated Unicode table.
         /// </remarks>
         /// <exception cref="ObjectDisposedException">The converter has been disposed, including for empty input.</exception>
         /// <exception cref="ArgumentException">The input contains an embedded NUL character.</exception>
@@ -107,7 +108,8 @@ namespace OpenccFmmsegLib
         /// <returns>Normalized text, preserving characters without an applicable native mapping.</returns>
         /// <remarks>
         /// Requires native v0.12.0 or later and a live converter instance. This optional preprocessing step
-        /// extends <see cref="NormalizeCompat"/>; it is not general-purpose NFC, NFD, NFKC, or NFKD normalization.
+        /// applies the CJK table from <see cref="NormalizeCompat"/> followed by the curated Unicode table
+        /// exposed by <see cref="NormalizeUnicodeCompat"/>; it is not general-purpose NFC, NFD, NFKC, or NFKD normalization.
         /// Recommended order: normalize, Convert, then optionally <see cref="DeTofu"/> for display fallback.
         /// Existing conversion methods do not enable normalization automatically.
         /// </remarks>
@@ -117,6 +119,26 @@ namespace OpenccFmmsegLib
         public string NormalizeCompatExtended(string text)
         {
             return TransformText(text, TextTransform.NormalizeCompatExtended);
+        }
+
+        /// <summary>Normalizes selected radicals, glyph variants, punctuation, and text-extraction artifacts using the native curated Unicode table.</summary>
+        /// <param name="text">Input text; null or empty returns an empty string on a live converter.</param>
+        /// <returns>Normalized text, preserving characters without a curated Unicode mapping.</returns>
+        /// <remarks>
+        /// Requires the native <c>opencc_normalize_unicode_compat</c> export (v0.13.1.0 or later)
+        /// and a live converter instance. For example, <c>聼⽟神</c> becomes <c>聽玉神</c>.
+        /// CJK Compatibility Ideographs are preserved unless explicitly mapped by the curated table.
+        /// Use <see cref="NormalizeCompatExtended"/> to apply both the CJK and curated Unicode tables.
+        /// This optional preprocessing step performs no Simplified/Traditional conversion and is not
+        /// general-purpose NFC, NFD, NFKC, or NFKD normalization. Conversion methods do not run it automatically.
+        /// </remarks>
+        /// <exception cref="ObjectDisposedException">The converter has been disposed, including for null or empty input.</exception>
+        /// <exception cref="ArgumentException">The input contains an embedded NUL character.</exception>
+        /// <exception cref="InvalidOperationException">The native operation fails.</exception>
+        /// <exception cref="EntryPointNotFoundException">The loaded native library does not export <c>opencc_normalize_unicode_compat</c>.</exception>
+        public string NormalizeUnicodeCompat(string text)
+        {
+            return TransformText(text, TextTransform.NormalizeUnicodeCompat);
         }
 
         /// <summary>Applies native built-in fallback mappings for display compatibility at an inclusive extension threshold.</summary>
@@ -142,6 +164,7 @@ namespace OpenccFmmsegLib
         {
             NormalizeCompat,
             NormalizeCompatExtended,
+            NormalizeUnicodeCompat,
             DeTofu
         }
 
@@ -166,6 +189,9 @@ namespace OpenccFmmsegLib
                         break;
                     case TextTransform.NormalizeCompatExtended:
                         output = OpenccFmmsegNative.opencc_normalize_compat_extended(_openccInstance, inputBuffer);
+                        break;
+                    case TextTransform.NormalizeUnicodeCompat:
+                        output = OpenccFmmsegNative.opencc_normalize_unicode_compat(_openccInstance, inputBuffer);
                         break;
                     case TextTransform.DeTofu:
                         output = OpenccFmmsegNative.opencc_detofu(_openccInstance, inputBuffer, (uint)level);

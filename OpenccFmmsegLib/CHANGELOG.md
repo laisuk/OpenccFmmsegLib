@@ -6,6 +6,22 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.5.1] - Unreleased
+
+### Added
+
+- Added `NormalizeUnicodeCompat(string)` for the native curated Unicode table: selected radicals, glyph variants,
+  punctuation, and text-extraction artifacts. Requires native `opencc_normalize_unicode_compat` (v0.13.1.0 or later),
+  available in all bundled runtimes.
+- Added tests distinguishing CJK-only, curated Unicode-only, and combined normalization, with coverage for
+  null/empty input, disposal, embedded NUL, Unicode preservation, repeated calls, and native error handling.
+
+### Changed
+
+- Refined public XML documentation and README examples to explain normalization choices and native requirements.
+
+---
+
 ## [1.5.0] - 2026-11-01
 
 ### Added

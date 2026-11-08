@@ -30,49 +30,29 @@ namespace OpenccFmmsegLib
         private const string DllPath = "opencc_fmmseg_capi";
 
         /// <summary>
-        /// Gets the OpenCC-FMMSEG C API ABI version number.
+        /// Gets the native C API binary interface version.
         /// </summary>
         /// <remarks>
-        /// This value is intended for <b>runtime binary compatibility checks</b>.
-        /// It changes <b>only</b> when the native C ABI is broken (for example,
-        /// when function signatures or calling conventions change).
-        ///
-        /// <para>
-        /// Managed bindings (P/Invoke, JNI, ctypes, etc.) should verify this value
-        /// before invoking other native functions.
-        /// </para>
+        /// The ABI number identifies breaking interface changes; additive exports can require a newer library without changing it.
         /// </remarks>
-        /// <returns>
-        /// A monotonically increasing ABI version number.
-        /// </returns>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint opencc_abi_number();
 
         /// <summary>
-        /// Gets the OpenCC-FMMSEG native library version string.
+        /// Gets the native library version identifier.
         /// </summary>
         /// <remarks>
-        /// The returned string is a UTF-8, null-terminated version identifier
-        /// (for example, <c>"0.8.5"</c>).
-        ///
-        /// <para>
-        /// The returned pointer is owned by the native library and remains valid
-        /// for the lifetime of the process. Callers must not free it.
-        /// </para>
+        /// Returns a static NUL-terminated UTF-8 pointer, valid while the library is loaded. Do not modify or free it.
         /// </remarks>
-        /// <returns>
-        /// A pointer to a UTF-8 encoded, null-terminated version string.
-        /// </returns>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr opencc_version_string();
 
         /// <summary>
-        /// Creates a new <c>OpenCC</c> instance in unmanaged memory.
+        /// Creates a converter using the built-in dictionaries.
         /// </summary>
-        /// <returns>
-        /// A pointer to the newly allocated native <c>OpenCC</c> object,
-        /// or <see cref="IntPtr.Zero"/> if initialization failed.
-        /// </returns>
+        /// <remarks>
+        /// Returns an owned instance, or zero on failure. Release it with opencc_delete; read opencc_last_error immediately on failure.
+        /// </remarks>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr opencc_new();
 
@@ -93,42 +73,105 @@ namespace OpenccFmmsegLib
             internal UIntPtr PairCount;
         }
 
-        /// <summary>Creates an instance, copying all borrowed custom dictionary data before returning.</summary>
+        /// <summary>
+        /// Creates a converter with ordered custom dictionary specifications.
+        /// </summary>
+        /// <param name="specs">Borrowed contiguous native specification array; may be zero when specCount is zero.</param>
+        /// <param name="specCount">Specification count, represented by native size_t.</param>
+        /// <remarks>
+        /// Requires native v0.11.5 or later; Seal slots require v0.13.0. Copies all borrowed specifications and mappings before returning. Returns an owned instance or zero on failure; release it with opencc_delete.
+        /// </remarks>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern IntPtr opencc_new_custom(IntPtr specs, UIntPtr specCount);
 
-        /// <summary>Normalizes CJK Compatibility Ideographs. Free the allocated result with opencc_string_free.</summary>
+        /// <summary>
+        /// Normalizes mapped CJK Compatibility Ideographs.
+        /// </summary>
+        /// <param name="instance">Pointer to a live native instance, unchanged and not freed during the call.</param>
+        /// <param name="input">Borrowed NUL-terminated UTF-8 input, unchanged during the call.</param>
+        /// <returns>Newly allocated NUL-terminated UTF-8 output; native failures may return allocated error text or a zero pointer.</returns>
+        /// <remarks>
+        /// Requires native v0.12.0 or later. Leaves characters without a CJK compatibility mapping unchanged.
+        /// Release every nonzero result, including error text, exactly once with <see cref="opencc_string_free"/>.
+        /// Read <see cref="opencc_last_error"/> immediately on the calling thread to diagnose failure.
+        /// Null instance/input returns zero; invalid UTF-8 returns allocated error text. Success clears the thread-local diagnostic.
+        /// Performs no Simplified/Traditional conversion or general-purpose Unicode normalization.
+        /// </remarks>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern IntPtr opencc_normalize_compat(IntPtr instance, byte[] input);
 
-        /// <summary>Applies extended compatibility normalization. Free the allocated result with opencc_string_free.</summary>
+        /// <summary>
+        /// Applies CJK Compatibility Ideograph normalization followed by curated Unicode mappings.
+        /// </summary>
+        /// <param name="instance">Pointer to a live native instance, unchanged and not freed during the call.</param>
+        /// <param name="input">Borrowed NUL-terminated UTF-8 input, unchanged during the call.</param>
+        /// <returns>Newly allocated NUL-terminated UTF-8 output; native failures may return allocated error text or a zero pointer.</returns>
+        /// <remarks>
+        /// Requires native v0.12.0 or later. Combines the CJK and curated Unicode tables.
+        /// Release every nonzero result, including error text, exactly once with <see cref="opencc_string_free"/>.
+        /// Read <see cref="opencc_last_error"/> immediately on the calling thread to diagnose failure.
+        /// Null instance/input returns zero; invalid UTF-8 returns allocated error text. Success clears the thread-local diagnostic.
+        /// Performs no Simplified/Traditional conversion or general-purpose Unicode normalization.
+        /// </remarks>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern IntPtr opencc_normalize_compat_extended(IntPtr instance, byte[] input);
 
-        /// <summary>Applies built-in display fallback. Level is uint32_t; free the allocated result with opencc_string_free.</summary>
+        /// <summary>
+        /// Normalizes selected radicals, glyph variants, punctuation, and text-extraction artifacts.
+        /// </summary>
+        /// <param name="instance">Pointer to a live native instance, unchanged and not freed during the call.</param>
+        /// <param name="input">Borrowed NUL-terminated UTF-8 input, unchanged during the call.</param>
+        /// <returns>Newly allocated NUL-terminated UTF-8 output; native failures may return allocated error text or a zero pointer.</returns>
+        /// <remarks>
+        /// Requires native v0.13.1.0 or later. Uses only the curated Unicode table; CJK Compatibility Ideographs are preserved unless explicitly mapped by that table.
+        /// Release every nonzero result, including error text, exactly once with <see cref="opencc_string_free"/>.
+        /// Read <see cref="opencc_last_error"/> immediately on the calling thread to diagnose failure.
+        /// Null instance/input returns zero; invalid UTF-8 returns allocated error text. Success clears the thread-local diagnostic.
+        /// Performs no Simplified/Traditional conversion or general-purpose Unicode normalization.
+        /// </remarks>
+        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern IntPtr opencc_normalize_unicode_compat(IntPtr instance, byte[] input);
+
+        /// <summary>
+        /// Applies built-in display fallback at an inclusive CJK extension threshold.
+        /// </summary>
+        /// <param name="instance">Pointer to a live native instance, unchanged and not freed during the call.</param>
+        /// <param name="input">Borrowed NUL-terminated UTF-8 input, unchanged during the call.</param>
+        /// <param name="level">Native uint32_t threshold, from 0 (Extension B) through 7 (Extension I), inclusive of supported later extensions.</param>
+        /// <returns>Newly allocated NUL-terminated UTF-8 output; native failures may return allocated error text or a zero pointer.</returns>
+        /// <remarks>
+        /// Requires native v0.12.0 or later. Characters without an eligible fallback mapping remain unchanged.
+        /// Release every nonzero result, including error text, exactly once with <see cref="opencc_string_free"/>.
+        /// Read <see cref="opencc_last_error"/> immediately on the calling thread to diagnose failure.
+        /// Null instance/input returns zero; invalid UTF-8 returns allocated error text. Success clears the thread-local diagnostic.
+        /// Performs no Simplified/Traditional conversion or general-purpose Unicode normalization.
+        /// </remarks>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern IntPtr opencc_detofu(IntPtr instance, byte[] input, uint level);
 
         /// <summary>
-        /// Deletes a previously created <c>OpenCC</c> instance and releases its resources.
+        /// Releases a native converter and its resources.
         /// </summary>
-        /// <param name="opencc">
-        /// Pointer returned from <see cref="opencc_new"/>. Must not be <see cref="IntPtr.Zero"/>.
-        /// </param>
+        /// <param name="opencc">Owned instance returned by a native constructor, or zero.</param>
+        /// <remarks>
+        /// Zero is a no-op. Release each owned instance once; do not free it during another operation or use it afterward.
+        /// </remarks>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void opencc_delete(IntPtr opencc);
 
         /// <summary>
-        /// Converts input UTF-8 text using the specified OpenCC configuration and punctuation option.
+        /// Converts NUL-terminated UTF-8 text using a configuration name.
         /// </summary>
-        /// <param name="opencc">Pointer to a valid native <c>OpenCC</c> instance.</param>
-        /// <param name="input">UTF-8 encoded byte array of the input string, null-terminated.</param>
-        /// <param name="config">UTF-8 encoded null-terminated string representing the conversion config name (e.g. <c>"s2t"</c>).</param>
-        /// <param name="punctuation">Whether to convert punctuation marks (<c>true</c>) or leave them unchanged (<c>false</c>).</param>
-        /// <returns>
-        /// Pointer to a newly allocated UTF-8 null-terminated string containing the converted text.
-        /// The caller must free this memory using <see cref="opencc_string_free"/>.
-        /// </returns>
+        /// <param name="opencc">Pointer to a live native instance, unchanged and not freed during the call.</param>
+        /// <param name="input">Borrowed NUL-terminated UTF-8 input, unchanged during the call.</param>
+        /// <param name="config">Borrowed NUL-terminated UTF-8 configuration name; ASCII case-insensitive.</param>
+        /// <param name="punctuation">Whether to apply the selected configuration's punctuation mappings.</param>
+        /// <returns>Newly allocated NUL-terminated UTF-8 output; native failures may return allocated error text or a zero pointer.</returns>
+        /// <remarks>
+        /// Embedded NUL bytes terminate input.
+        /// Release every nonzero result, including error text, exactly once with <see cref="opencc_string_free"/>.
+        /// Read <see cref="opencc_last_error"/> immediately on the calling thread to diagnose failure.
+        /// </remarks>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr opencc_convert(
             IntPtr opencc,
@@ -137,67 +180,58 @@ namespace OpenccFmmsegLib
             [MarshalAs(UnmanagedType.I1)] bool punctuation);
 
         /// <summary>
-        /// Checks the language type of the input Chinese text (Simplified or Traditional).
+        /// Detects Chinese text type by comparing conversion results.
         /// </summary>
-        /// <param name="opencc">Pointer to a valid native <c>OpenCC</c> instance.</param>
-        /// <param name="input">UTF-8 encoded null-terminated input string.</param>
-        /// <returns>
-        /// An integer code defined by the native OpenCC implementation:
-        /// <list type="bullet">
-        /// <item><description><c>1</c> = Traditional Chinese</description></item>
-        /// <item><description><c>2</c> = Simplified Chinese</description></item>
-        /// <item><description><c>0</c> = Other or undetermined</description></item>
-        /// </list>
-        /// </returns>
+        /// <param name="opencc">Pointer to a live native instance, unchanged and not freed during the call.</param>
+        /// <param name="input">Borrowed NUL-terminated UTF-8 input, unchanged during the call.</param>
+        /// <remarks>
+        /// Returns 1 for Traditional Chinese, 2 for Simplified Chinese, 0 for neither, or -1 for invalid input or a null pointer.
+        /// </remarks>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int opencc_zho_check(IntPtr opencc, byte[] input);
 
         /// <summary>
-        /// Frees a UTF-8 string allocated by a native conversion, normalization, or DeTofu operation.
+        /// Releases a string allocated by a native conversion, normalization, or display-fallback operation.
         /// </summary>
-        /// <param name="str">
-        /// Pointer to the unmanaged string previously returned by <see cref="opencc_convert"/>.
-        /// Safe to call with <see cref="IntPtr.Zero"/>.
-        /// </param>
+        /// <param name="str">Original allocated pointer to release, or zero for a no-op.</param>
+        /// <remarks>
+        /// Zero is a no-op. Free each allocation once, preserving its first terminating NUL until this call. Do not pass static strings, caller-owned buffers, or opencc_last_error results.
+        /// </remarks>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void opencc_string_free(IntPtr str);
 
         /// <summary>
-        /// Retrieves an independently allocated copy of the last error message recorded
-        /// by the native library for the calling thread.
+        /// Copies the calling thread's last native error message.
         /// </summary>
         /// <remarks>
-        /// This function must be called on the same thread as the failed native operation.
-        /// If that thread has no recorded error, the returned string contains <c>"No error"</c>.
+        /// Read immediately after failure on the same thread. Returns an independently allocated NUL-terminated UTF-8 string, containing "No error" when no error is recorded. Release every copy with opencc_error_free.
         /// </remarks>
-        /// <returns>
-        /// Pointer to a newly allocated UTF-8 null-terminated error string.
-        /// The caller must release it using <see cref="opencc_error_free"/>.
-        /// </returns>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr opencc_last_error();
 
         /// <summary>
-        /// Frees the error message string returned by <see cref="opencc_last_error"/>.
+        /// Releases an error-message copy returned by opencc_last_error.
         /// </summary>
-        /// <param name="str">
-        /// Pointer to the unmanaged error string to free.
-        /// Safe to call with <see cref="IntPtr.Zero"/>.
-        /// </param>
+        /// <param name="str">Original allocated pointer to release, or zero for a no-op.</param>
+        /// <remarks>
+        /// Zero is a no-op. Free each nonzero copy once. Use opencc_string_free for transformation results.
+        /// </remarks>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void opencc_error_free(IntPtr str);
 
         /// <summary>
-        /// Converts input UTF-8 text using a numeric OpenCC config and punctuation option.
+        /// Converts NUL-terminated UTF-8 text using a numeric configuration ID.
         /// </summary>
-        /// <param name="opencc">Pointer to a valid native <c>OpenCC</c> instance.</param>
-        /// <param name="input">UTF-8 encoded byte array of the input string, null-terminated.</param>
-        /// <param name="config">Numeric config value (opencc_config_t).</param>
-        /// <param name="punctuation">Whether to convert punctuation marks.</param>
-        /// <returns>
-        /// Pointer to a newly allocated UTF-8 null-terminated string containing the converted text.
-        /// The caller must free this memory using <see cref="opencc_string_free"/>.
-        /// </returns>
+        /// <param name="opencc">Pointer to a live native instance, unchanged and not freed during the call.</param>
+        /// <param name="input">Borrowed NUL-terminated UTF-8 input, unchanged during the call.</param>
+        /// <param name="config">Native opencc_config_t configuration ID.</param>
+        /// <param name="punctuation">Whether to apply the selected configuration's punctuation mappings.</param>
+        /// <returns>Newly allocated NUL-terminated UTF-8 output; native failures may return allocated error text or a zero pointer.</returns>
+        /// <remarks>
+        /// Embedded NUL bytes terminate input.
+        /// Release every nonzero result, including error text, exactly once with <see cref="opencc_string_free"/>.
+        /// Read <see cref="opencc_last_error"/> immediately on the calling thread to diagnose failure.
+        /// </remarks>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr opencc_convert_cfg(
             IntPtr opencc,
@@ -206,17 +240,23 @@ namespace OpenccFmmsegLib
             [MarshalAs(UnmanagedType.I1)] bool punctuation);
 
         /// <summary>
-        /// Converts a UTF-8 input string using a numeric OpenCC config, writing to a caller-provided buffer.
-        /// Uses a size-query pattern: call with out_buf = NULL/out_cap = 0 to get required bytes (incl. '\0').
+        /// Converts NUL-terminated UTF-8 input into a caller-owned buffer.
         /// </summary>
-        /// <param name="opencc">Pointer to a valid native <c>OpenCC</c> instance.</param>
-        /// <param name="input">UTF-8 encoded byte array of the input string, null-terminated.</param>
-        /// <param name="config">Numeric config value (opencc_config_t).</param>
-        /// <param name="punctuation">Whether to convert punctuation marks.</param>
-        /// <param name="outBuf">Output buffer pointer (maybe IntPtr.Zero for size-query).</param>
-        /// <param name="outCap">Output buffer capacity in bytes.</param>
-        /// <param name="outRequired">Receives required bytes INCLUDING trailing '\0' (always written on return).</param>
-        /// <returns>true on success (including size-query), false on failure.</returns>
+        /// <param name="opencc">Pointer to a live native instance, unchanged and not freed during the call.</param>
+        /// <param name="input">Borrowed NUL-terminated UTF-8 input, unchanged during the call.</param>
+        /// <param name="config">Native opencc_config_t configuration ID.</param>
+        /// <param name="punctuation">Whether to apply the selected configuration's punctuation mappings.</param>
+        /// <param name="outBuf">Caller-owned writable output buffer, or zero for a size query.</param>
+        /// <param name="outCap">Output capacity in bytes; zero requests a size query.</param>
+        /// <param name="outRequired">Receives the required byte count including the final NUL; on failure, this may size an error message.</param>
+        /// <returns>True for a successful size query or write; false for insufficient capacity or a native error.</returns>
+        /// <remarks>
+        /// Deprecated; prefer opencc_convert_cfg_mem_len.
+        /// A query converts once to compute the size; a subsequent write converts again. Successful writes append a NUL.
+        /// Success clears the thread-local diagnostic. On failure, a sufficiently large buffer may receive error text;
+        /// an undersized buffer is unchanged. Read <see cref="opencc_last_error"/> immediately on the calling thread.
+        /// Input and output regions must not overlap. The caller owns the output; do not pass it to opencc_string_free.
+        /// </remarks>
         [Obsolete("Deprecated native compatibility entry point. Use opencc_convert_cfg_mem_len instead.")]
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]
@@ -230,24 +270,24 @@ namespace OpenccFmmsegLib
             out UIntPtr outRequired);
 
         /// <summary>
-        /// Converts a UTF-8 input buffer using a numeric OpenCC config, writing to a caller-provided buffer.
-        /// Uses a size-query pattern: call with out_buf = NULL/out_cap = 0 to get required bytes (incl. '\0').
+        /// Converts explicit-length UTF-8 input into a caller-owned buffer.
         /// </summary>
+        /// <param name="opencc">Pointer to a live native instance, unchanged and not freed during the call.</param>
+        /// <param name="input">Borrowed readable UTF-8 bytes; must be nonnull even for zero length. No terminator is required.</param>
+        /// <param name="inputLen">Readable input byte count, represented by native size_t and at most PTRDIFF_MAX.</param>
+        /// <param name="config">Native opencc_config_t configuration ID.</param>
+        /// <param name="punctuation">Whether to apply the selected configuration's punctuation mappings.</param>
+        /// <param name="outBuf">Caller-owned writable output buffer, or zero for a size query.</param>
+        /// <param name="outCap">Output capacity in bytes; zero requests a size query.</param>
+        /// <param name="outRequired">Receives the required byte count including the final NUL; on failure, this may size an error message.</param>
+        /// <returns>True for a successful size query or write; false for insufficient capacity or a native error.</returns>
         /// <remarks>
-        /// This variant accepts an explicit input length and does NOT require the input to be null-terminated.
-        /// It avoids scanning the input for a trailing NUL byte, but the size-query protocol performs
-        /// conversion once to determine the output size and again to write it. Use this variant only when
-        /// its explicit-length, caller-provided-buffer contract is required, not for better performance.
+        /// No input terminator is required. Embedded NUL bytes are included in the input length.
+        /// A query converts once to compute the size; a subsequent write converts again. Successful writes append a NUL.
+        /// Success clears the thread-local diagnostic. On failure, a sufficiently large buffer may receive error text;
+        /// an undersized buffer is unchanged. Read <see cref="opencc_last_error"/> immediately on the calling thread.
+        /// Input and output regions must not overlap. The caller owns the output; do not pass it to opencc_string_free.
         /// </remarks>
-        /// <param name="opencc">Pointer to a valid native <c>OpenCC</c> instance.</param>
-        /// <param name="input">UTF-8 encoded byte array of the input string (not required to be null-terminated).</param>
-        /// <param name="inputLen">Number of bytes in <paramref name="input"/>.</param>
-        /// <param name="config">Numeric config value (opencc_config_t).</param>
-        /// <param name="punctuation">Whether to convert punctuation marks.</param>
-        /// <param name="outBuf">Output buffer pointer (maybe IntPtr.Zero for size-query).</param>
-        /// <param name="outCap">Output buffer capacity in bytes.</param>
-        /// <param name="outRequired">Receives required bytes INCLUDING trailing '\0' (always written on return).</param>
-        /// <returns>true on success (including size-query), false on failure.</returns>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         [return: MarshalAs(UnmanagedType.I1)]
         internal static extern bool opencc_convert_cfg_mem_len(
@@ -261,17 +301,13 @@ namespace OpenccFmmsegLib
             out UIntPtr outRequired);
 
         /// <summary>
-        /// Converts a canonical OpenCC config name (e.g. "s2twp") to a numeric config ID.
+        /// Looks up a native configuration ID by canonical name.
         /// </summary>
-        /// <param name="nameUtf8">
-        /// Null-terminated UTF-8 string containing the canonical config name.
-        /// </param>
-        /// <param name="configId">
-        /// Receives the numeric OpenCC config ID on success.
-        /// </param>
-        /// <returns>
-        /// true if the name is valid; false otherwise.
-        /// </returns>
+        /// <param name="nameUtf8">Borrowed NUL-terminated UTF-8 configuration name; ASCII case-insensitive.</param>
+        /// <param name="configId">Native configuration ID; an output parameter receives the ID on success.</param>
+        /// <remarks>
+        /// Returns true for a supported name, false otherwise. Native code leaves the output ID unchanged on failure. Does not change the thread-local diagnostic.
+        /// </remarks>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]
         internal static extern bool opencc_config_name_to_id(
@@ -279,12 +315,12 @@ namespace OpenccFmmsegLib
             out int configId);
 
         /// <summary>
-        /// Converts a numeric OpenCC config ID to its canonical lowercase name.
+        /// Looks up the canonical lowercase name of a native configuration ID.
         /// </summary>
-        /// <param name="configId">Numeric OpenCC config ID.</param>
-        /// <returns>
-        /// Pointer to a static UTF-8 string, or IntPtr.Zero if invalid.
-        /// </returns>
+        /// <param name="configId">Native configuration ID; an output parameter receives the ID on success.</param>
+        /// <remarks>
+        /// Returns a static NUL-terminated UTF-8 pointer or zero for an undefined ID. Do not modify or free it; it remains valid while the library is loaded. Does not change the thread-local diagnostic.
+        /// </remarks>
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr opencc_config_id_to_name(
             int configId);

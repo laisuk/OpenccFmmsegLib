@@ -33,11 +33,27 @@ public sealed class TextTransformTests
     }
 
     [TestMethod]
+    [DataRow("聼⽟神", "聽玉神", "聼⽟神", "聽玉神")]
+    [DataRow("天龍八部書裡的聼眾‧聼聼竒羙⽟䂖甁噐⾳",
+        "天龍八部書裡的聽眾·聽聽奇美玉石瓶器音",
+        "天龍八部書裡的聼眾‧聼聼竒羙⽟䂖甁噐⾳",
+        "天龍八部書裡的聽眾·聽聽奇美玉石瓶器音")]
+    public void UnicodeNormalizationUsesOnlyCuratedTable(string input, string unicode, string basic, string extended)
+    {
+        using var converter = new OpenccFmmseg();
+        Assert.AreEqual(unicode, converter.NormalizeUnicodeCompat(input));
+        Assert.AreEqual(basic, converter.NormalizeCompat(input));
+        Assert.AreEqual(extended, converter.NormalizeCompatExtended(input));
+        Assert.AreEqual(extended, converter.NormalizeUnicodeCompat(converter.NormalizeCompat(input)));
+    }
+
+    [TestMethod]
     public void UnmappedBmpAndSupplementaryCharactersArePreserved()
     {
         using var converter = new OpenccFmmseg();
         const string input = "普通中文 ABC 123，﨑😀𱁬";
         // Native tests identify U+FA11 as unmapped; Java tests identify 𱁬 as lacking a DeTofu fallback.
+        Assert.AreEqual(input, converter.NormalizeUnicodeCompat(input));
         Assert.AreEqual(input, converter.NormalizeCompat(input));
         Assert.AreEqual(input, converter.NormalizeCompatExtended(input));
         foreach (var level in Enum.GetValues<DeTofuLevel>())
@@ -50,6 +66,7 @@ public sealed class TextTransformTests
     public void NullAndEmptyInputReturnEmptyStrings(string? input)
     {
         using var converter = new OpenccFmmseg();
+        Assert.AreEqual("", converter.NormalizeUnicodeCompat(input!));
         Assert.AreEqual("", converter.NormalizeCompat(input!));
         Assert.AreEqual("", converter.NormalizeCompatExtended(input!));
         foreach (var level in Enum.GetValues<DeTofuLevel>())
@@ -94,7 +111,8 @@ public sealed class TextTransformTests
 
         static void AssertInvalidLevel(OpenccFmmseg instance, string? input, uint value)
         {
-            var error = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => instance.DeTofu(input!, (DeTofuLevel)value));
+            var error = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+                instance.DeTofu(input!, (DeTofuLevel)value));
             Assert.AreEqual("level", error.ParamName);
         }
     }
@@ -126,6 +144,7 @@ public sealed class TextTransformTests
 
         static void AssertDisposedOperations(OpenccFmmseg instance, string? text)
         {
+            Assert.ThrowsExactly<ObjectDisposedException>(() => instance.NormalizeUnicodeCompat(text!));
             Assert.ThrowsExactly<ObjectDisposedException>(() => instance.NormalizeCompat(text!));
             Assert.ThrowsExactly<ObjectDisposedException>(() => instance.NormalizeCompatExtended(text!));
             Assert.ThrowsExactly<ObjectDisposedException>(() => instance.DeTofu(text!, DeTofuLevel.ExtB));
@@ -140,6 +159,7 @@ public sealed class TextTransformTests
 
         static void AssertEmbeddedNulRejected(OpenccFmmseg instance)
         {
+            Assert.ThrowsExactly<ArgumentException>(() => instance.NormalizeUnicodeCompat("聼\0庸"));
             Assert.ThrowsExactly<ArgumentException>(() => instance.NormalizeCompat("金\0庸"));
             Assert.ThrowsExactly<ArgumentException>(() => instance.NormalizeCompatExtended("金\0庸"));
             Assert.ThrowsExactly<ArgumentException>(() => instance.DeTofu("骖\0𬴂", DeTofuLevel.ExtB));
@@ -156,10 +176,12 @@ public sealed class TextTransformTests
         });
         for (var i = 0; i < 100; i++)
         {
+            Assert.AreEqual("金庸聽", converter.NormalizeUnicodeCompat("金庸聼"));
             Assert.AreEqual("金庸", converter.NormalizeCompat("金庸"));
             Assert.AreEqual("金庸聽", converter.NormalizeCompatExtended("金庸聼"));
             Assert.AreEqual("骖騑", converter.DeTofu("骖𬴂", DeTofuLevel.ExtB));
         }
+
         Assert.AreEqual("自訂詞語", converter.Convert("自定义词语", "s2t"));
         // Normalization is opt-in: Convert alone must preserve the original compatibility character.
         Assert.AreEqual("金", converter.Convert("金", "s2t"));
@@ -170,7 +192,7 @@ public sealed class TextTransformTests
     public void SuccessfulTransformsClearPriorNativeErrors()
     {
         using var converter = new OpenccFmmseg();
-        for (var operation = 0; operation < 3; operation++)
+        for (var operation = 0; operation < 4; operation++)
         {
             var failed = OpenccFmmsegNative.opencc_normalize_compat(IntPtr.Zero, Encoding.UTF8.GetBytes("x\0"));
             var nativeError = OpenccFmmseg.LastError();
@@ -183,10 +205,12 @@ public sealed class TextTransformTests
             {
                 if (failed != IntPtr.Zero) OpenccFmmsegNative.opencc_string_free(failed);
             }
+
             var result = operation switch
             {
                 0 => converter.NormalizeCompat("金"),
                 1 => converter.NormalizeCompatExtended("金"),
+                2 => converter.NormalizeUnicodeCompat("金"),
                 _ => converter.DeTofu("金", DeTofuLevel.ExtB)
             };
             Assert.AreEqual("金", result);
@@ -205,6 +229,7 @@ public sealed class TextTransformTests
                      {
                          () => OpenccFmmsegNative.opencc_normalize_compat(instance, new byte[] { 0xff, 0 }),
                          () => OpenccFmmsegNative.opencc_normalize_compat_extended(instance, new byte[] { 0xff, 0 }),
+                         () => OpenccFmmsegNative.opencc_normalize_unicode_compat(instance, new byte[] { 0xff, 0 }),
                          () => OpenccFmmsegNative.opencc_detofu(instance, new byte[] { 0xff, 0 }, 0),
                          () => OpenccFmmsegNative.opencc_detofu(instance, Encoding.UTF8.GetBytes("骖𬴂\0"), 99)
                      })

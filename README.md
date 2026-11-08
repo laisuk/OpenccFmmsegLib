@@ -198,7 +198,9 @@ Custom construction adds no work to conversion hot paths and introduces no new d
 
 ## Compatibility Normalization and DeTofu
 
-These optional operations require native v0.12.0 or later, supported by all bundled v0.13.1 runtimes.
+The basic/extended normalizers and DeTofu require native v0.12.0 or later.
+`NormalizeUnicodeCompat` requires the `opencc_normalize_unicode_compat` export, added in native v0.13.1.0.
+All bundled runtimes support these operations; custom native deployments must provide the required exports.
 They are **instance methods** because each native C function requires a live OpenCC instance.
 The recommended processing order is normalization, Chinese conversion, then display fallback:
 
@@ -217,6 +219,10 @@ string result = converter.DeTofu(converted, DeTofuLevel.ExtB);
 characters: `金庸` becomes `金庸`, and `天龍八部書` becomes `天龍八部書`.
 `NormalizeCompatExtended(text)` additionally applies the native curated Unicode compatibility mappings;
 for example, `聼竒羙䂖甁噐` becomes `聽奇美石瓶器`, while the basic method leaves that text unchanged.
+`NormalizeUnicodeCompat(text)` applies only the curated Unicode table for selected radicals, glyph variants,
+punctuation, and text-extraction artifacts: `聼⽟神` becomes `聽玉神`. It preserves CJK Compatibility Ideographs
+unless explicitly mapped by that table. Use `NormalizeCompatExtended` to apply the CJK table followed by
+the curated Unicode table. None of these methods performs Simplified/Traditional conversion.
 These methods use the native tables and are not general-purpose NFC, NFD, NFKC, or NFKD normalization.
 Characters without applicable mappings remain unchanged.
 
@@ -239,7 +245,7 @@ unchanged, including unmapped supplementary characters. It does not insert quest
 The selected threshold determines eligibility; replacement still requires an entry in the built-in table.
 `ExtB` is the broadest threshold. There is no disabled level; omit the DeTofu call to disable fallback.
 
-All three methods return an empty string for null or empty input on a live converter. Undefined DeTofu
+All four methods return an empty string for null or empty input on a live converter. Undefined DeTofu
 levels throw `ArgumentOutOfRangeException`, including for empty input. Embedded NUL characters are rejected
 with `ArgumentException` to prevent native string truncation. Calls after disposal throw `ObjectDisposedException`,
 including for null or empty input. Native failures throw `InvalidOperationException` with the native diagnostic;
@@ -300,6 +306,9 @@ are validated strictly instead.
 * `string NormalizeCompatExtended(string text)`
   Adds the native curated Unicode compatibility mappings to basic normalization.
 
+* `string NormalizeUnicodeCompat(string text)`
+  Applies only the native curated Unicode compatibility and variant mappings (requires native v0.13.1.0 or later).
+
 * `string DeTofu(string text, DeTofuLevel level)`
   Applies optional native display fallback at an inclusive CJK extension threshold.
 
@@ -326,6 +335,7 @@ are validated strictly instead.
   Uses the explicit-length native size-query and output passes; null or empty input returns a single NUL byte.
 
 *
+
 `bool TryConvertCfgToUtf8(string input, int configId, bool punctuation, Span<byte> destination, out int requiredBytes)`
 Writes NUL-terminated UTF-8 output into a caller-provided buffer using the explicit-length native API.
 `requiredBytes` includes the trailing NUL byte, including for null or empty input (one byte).
@@ -334,6 +344,7 @@ Writes NUL-terminated UTF-8 output into a caller-provided buffer using the expli
   Obsolete alias for `ConvertCfgToUtf8Z()`; hidden from IntelliSense.
 
 *
+
 `bool TryConvertCfgToUtf8Into(string input, int configId, bool punctuation, Span<byte> destination, out int requiredBytes)`
 Obsolete alias for `TryConvertCfgToUtf8()`; hidden from IntelliSense.
 
