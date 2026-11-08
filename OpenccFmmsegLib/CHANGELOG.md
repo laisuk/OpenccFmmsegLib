@@ -19,6 +19,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - Refined public XML documentation and README examples to explain normalization choices and native requirements.
+- Updated opencc-fmmseg C API native.
 
 ---
 

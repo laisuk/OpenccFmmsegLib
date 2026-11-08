@@ -25,6 +25,7 @@
             - Added regression coverage distinguishing all three normalizers and checking input validation, disposal, Unicode preservation, repeated calls, and native error handling.
             - Refined public and native XML documentation, README examples, and normalization/version guidance.
             - Preserved opt-in normalization and existing conversion behavior.
+            - Updated C API native.
         </PackageReleaseNotes>
 
         <PackageIcon>icon.png</PackageIcon>
