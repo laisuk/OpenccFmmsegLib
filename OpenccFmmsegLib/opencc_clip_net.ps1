@@ -52,7 +52,7 @@ $Reset = "`e[0m"
 # Punctuation flag (simplified to a single line)
 $Punctuation = ($Punct.ToLower() -eq "punct")
 
-Write-Host "Opencc-Clip-Fmmseg version 1.5.0 Copyright (c) 2026 Laisuk Lai"
+Write-Host "Opencc-Clip-Fmmseg version 1.5.1 Copyright (c) 2026 Laisuk Lai"
 
 # Handle help configuration
 if ($Config -eq "help")
